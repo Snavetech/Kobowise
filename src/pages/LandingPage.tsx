@@ -256,7 +256,7 @@ export const LandingPage: React.FC = () => {
               <span style={{ display: 'block', fontSize: '34px', fontWeight: '800', color: '#FFFFFF', textShadow: '0 0 20px rgba(96, 165, 250, 0.5)' }}>₦450k+</span>
               <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.75)', fontWeight: '600' }}>Student Savings</span>
             </div>
-            <div style={{ borderLeft: '1px solid rgba(255,255,255,0.15)', borderRight: '1px solid rgba(255,255,255,0.15)' }}>
+            <div className="metric-middle-item" style={{ borderLeft: '1px solid rgba(255,255,255,0.15)', borderRight: '1px solid rgba(255,255,255,0.15)' }}>
               <span style={{ display: 'block', fontSize: '34px', fontWeight: '800', color: '#60A5FA', textShadow: '0 0 20px rgba(96, 165, 250, 0.4)' }}>120+</span>
               <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.75)', fontWeight: '600' }}>Completed Groups</span>
             </div>
@@ -516,6 +516,18 @@ const styleElement = (
       }
       .trust-items-row {
         gap: 12px !important;
+      }
+      .metrics-grid {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+      }
+      .metric-middle-item {
+        border-left: none !important;
+        border-right: none !important;
+        border-top: 1px solid rgba(255,255,255,0.15) !important;
+        border-bottom: 1px solid rgba(255,255,255,0.15) !important;
+        padding: 16px 0 !important;
+        margin: 8px 0 !important;
       }
       .bottom-stats-grid {
         grid-template-columns: repeat(2, 1fr) !important;

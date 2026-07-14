@@ -566,3 +566,60 @@
   font-size: 14px;
   line-height: 1.6;
 }
+
+/* ============================================================================
+   RESPONSIVE LAYOUT & MEDIA QUERIES
+   ============================================================================ */
+
+/* Main layout padding with sidebar */
+.main-content-layout.has-sidebar {
+  padding-left: 250px;
+}
+
+@media (max-width: 767px) {
+  .main-content-layout.has-sidebar {
+    padding-left: 0 !important;
+  }
+}
+
+/* Home Page Hero & Category Scroll Responsiveness */
+.hero-banner-card {
+  padding: 40px 48px;
+}
+
+.hero-banner-title {
+  font-size: 44px;
+}
+
+.category-scroll {
+  max-width: calc(100% - 300px);
+}
+
+@media (max-width: 991px) {
+  .hero-banner-card {
+    padding: 24px 20px !important;
+    gap: 24px !important;
+  }
+  
+  .hero-banner-title {
+    font-size: 28px !important;
+  }
+  
+  .category-scroll {
+    max-width: 100% !important;
+  }
+}
+
+@media (max-width: 576px) {
+  .category-filter-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .profile-title, .dashboard-title {
+    font-size: 24px !important;
+  }
+}

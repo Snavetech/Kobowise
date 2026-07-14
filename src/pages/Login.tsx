@@ -455,6 +455,14 @@ export const Login: React.FC = () => {
             flex: 1 1 auto !important;
           }
         }
+        @media (max-width: 767px) {
+          .login-left-banner {
+            display: none !important;
+          }
+          .login-right-form {
+            padding: 32px 16px !important;
+          }
+        }
       `}</style>
 
     </div>

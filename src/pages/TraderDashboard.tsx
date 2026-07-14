@@ -247,7 +247,7 @@ export const TraderDashboard: React.FC = () => {
             <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Trader Dashboard
             </span>
-            <h1 style={{ fontSize: '32px', color: '#0F172A', fontFamily: 'var(--font-heading)', fontWeight: '800', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <h1 style={{ fontSize: '32px', color: '#0F172A', fontFamily: 'var(--font-heading)', fontWeight: '800', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '10px' }} className="dashboard-title">
               {user?.full_name || 'KoboWise Stores'}
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
                 <circle cx="12" cy="12" r="12" fill="#2563EB"/>

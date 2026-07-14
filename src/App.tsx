@@ -97,10 +97,9 @@ const AppLayout: React.FC = () => {
       
       <main style={{ 
         flexGrow: 1, 
-        paddingLeft: (user && !hideChrome) ? '250px' : '0',
         paddingTop: !hideChrome ? '70px' : '0',
         transition: 'padding var(--transition-normal)'
-      }} className="main-content-layout">
+      }} className={`main-content-layout ${(user && !hideChrome) ? 'has-sidebar' : ''}`}>
         <Routes>
           {/* Landing / Root */}
           <Route path="/" element={<LandingPage />} />

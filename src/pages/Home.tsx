@@ -245,7 +245,7 @@ export const Home: React.FC = () => {
                   marginBottom: '18px',
                   letterSpacing: '-0.5px',
                   color: '#FFFFFF'
-                }}>
+                }} className="hero-banner-title">
                   Buy Together. <br />
                   <span style={{ color: '#93C5FD' }}>Save Together.</span>
                 </h1>
@@ -446,7 +446,7 @@ export const Home: React.FC = () => {
             flexWrap: 'wrap', 
             gap: '16px',
             marginBottom: '16px'
-          }}>
+          }} className="category-filter-header">
             {/* Horizontal Scroll pills (Image 5) */}
             <div style={{ 
               display: 'flex', 
@@ -454,8 +454,7 @@ export const Home: React.FC = () => {
               overflowX: 'auto', 
               scrollbarWidth: 'none',
               msOverflowStyle: 'none',
-              flexGrow: 1,
-              maxWidth: 'calc(100% - 300px)'
+              flexGrow: 1
             }} className="category-scroll">
               <button 
                 type="button" 

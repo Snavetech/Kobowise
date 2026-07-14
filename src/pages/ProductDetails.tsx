@@ -322,8 +322,7 @@ export const ProductDetails: React.FC = () => {
                 <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>(24 reviews)</span>
               </div>
 
-              {/* Price Details Card */}
-              <div style={{ 
+              <div className="product-price-box" style={{ 
                 backgroundColor: '#F8FAFC', 
                 border: '1px solid #DBEAFE', 
                 borderRadius: '16px', 
@@ -347,7 +346,7 @@ export const ProductDetails: React.FC = () => {
                     Save {formatCurrency(product.total_price - product.price_per_share)} (75% off!)
                   </span>
                 </div>
-                <div style={{ textAlign: 'right', borderLeft: '1px dashed #DBEAFE', paddingLeft: '20px' }}>
+                <div className="product-price-right" style={{ textAlign: 'right', borderLeft: '1px dashed #DBEAFE', paddingLeft: '20px' }}>
                   <span style={{ fontSize: '11px', color: '#94A3B8', display: 'block', fontWeight: '700', textTransform: 'uppercase' }}>Full Price</span>
                   <span style={{ display: 'block', fontSize: '16px', fontWeight: '700', color: 'var(--text-primary)', textDecoration: 'line-through', marginTop: '6px' }}>
                     {formatCurrency(product.total_price)}
@@ -620,6 +619,20 @@ export const ProductDetails: React.FC = () => {
           }
           .highlights-grid {
             grid-template-columns: 1fr 1fr !important;
+          }
+        }
+        @media (max-width: 480px) {
+          .product-price-box {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 16px !important;
+          }
+          .product-price-right {
+            border-left: none !important;
+            padding-left: 0 !important;
+            border-top: 1px dashed #DBEAFE !important;
+            padding-top: 14px !important;
+            text-align: left !important;
           }
         }
       `}</style>

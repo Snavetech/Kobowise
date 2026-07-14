@@ -151,7 +151,7 @@ export const Profile: React.FC = () => {
             <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Student Profile
             </span>
-            <h1 style={{ fontSize: '32px', color: '#0F172A', fontFamily: 'var(--font-heading)', fontWeight: '800', marginTop: '4px' }}>
+            <h1 style={{ fontSize: '32px', color: '#0F172A', fontFamily: 'var(--font-heading)', fontWeight: '800', marginTop: '4px' }} className="profile-title">
               Welcome back, {user?.full_name?.split(' ')[0] || 'Chioma'} 👋
             </h1>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '6px' }}>
