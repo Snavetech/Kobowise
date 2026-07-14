@@ -602,7 +602,7 @@ const setLocal = <T>(key: string, data: T): void => {
 };
 
 // Initialize Mock Database in localStorage if empty
-if (isDemoMode) {
+export const initializeMockDb = (force = false): void => {
   // Force re-seed if old multi-trader data exists
   const storedProfiles = localStorage.getItem('kobowise_profiles');
   if (storedProfiles) {
@@ -637,14 +637,14 @@ if (isDemoMode) {
     } catch {}
   }
 
-  if (!localStorage.getItem('kobowise_profiles')) setLocal('profiles', MOCK_PROFILES);
-  if (!localStorage.getItem('kobowise_categories')) setLocal('categories', MOCK_CATEGORIES);
-  if (!localStorage.getItem('kobowise_products')) setLocal('products', MOCK_PRODUCTS);
-  if (!localStorage.getItem('kobowise_group_orders')) setLocal('group_orders', MOCK_GROUP_ORDERS);
-  if (!localStorage.getItem('kobowise_reviews')) setLocal('reviews', MOCK_REVIEWS);
-  if (!localStorage.getItem('kobowise_order_items')) setLocal('order_items', []);
-  if (!localStorage.getItem('kobowise_orders')) setLocal('orders', []);
-  if (!localStorage.getItem('kobowise_notifications')) setLocal('notifications', [
+  if (force || !localStorage.getItem('kobowise_profiles')) setLocal('profiles', MOCK_PROFILES);
+  if (force || !localStorage.getItem('kobowise_categories')) setLocal('categories', MOCK_CATEGORIES);
+  if (force || !localStorage.getItem('kobowise_products')) setLocal('products', MOCK_PRODUCTS);
+  if (force || !localStorage.getItem('kobowise_group_orders')) setLocal('group_orders', MOCK_GROUP_ORDERS);
+  if (force || !localStorage.getItem('kobowise_reviews')) setLocal('reviews', MOCK_REVIEWS);
+  if (force || !localStorage.getItem('kobowise_order_items')) setLocal('order_items', []);
+  if (force || !localStorage.getItem('kobowise_orders')) setLocal('orders', []);
+  if (force || !localStorage.getItem('kobowise_notifications')) setLocal('notifications', [
     {
       id: 'notif-1',
       user_id: 'buyer-1',
@@ -654,7 +654,11 @@ if (isDemoMode) {
       created_at: new Date().toISOString()
     }
   ]);
-  if (!localStorage.getItem('kobowise_wishlist')) setLocal('wishlist', []);
+  if (force || !localStorage.getItem('kobowise_wishlist')) setLocal('wishlist', []);
+};
+
+if (isDemoMode) {
+  initializeMockDb();
 }
 
 // ============================================================================

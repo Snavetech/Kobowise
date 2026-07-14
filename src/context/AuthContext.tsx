@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase, isDemoMode, dbService, type Profile } from '../supabase';
+import { supabase, isDemoMode, dbService, type Profile, initializeMockDb } from '../supabase';
 
 interface AuthContextType {
   user: Profile | null;
@@ -72,6 +72,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (isDemoEmail) {
           localStorage.setItem('kobowise_use_demo_mode', 'true');
         }
+        // Ensure mock database is seeded in localStorage
+        initializeMockDb();
         // Find matching profile. For demo mode, we simulate success for any seeded user.
         // If they enter "trader@delsu.edu", log in as trader-1. If "buyer@delsu.edu", log in as buyer-1.
         // Otherwise search by email/name prefixes or log in as buyer-1.
