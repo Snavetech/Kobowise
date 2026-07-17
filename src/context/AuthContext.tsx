@@ -20,6 +20,25 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const formatAuthError = (err: any): string => {
+  console.error('Auth error details:', err);
+  if (!err) return 'An unexpected error occurred.';
+  if (typeof err === 'string') return err;
+  if (typeof err.message === 'string') return err.message;
+  if (err.message && typeof err.message === 'object') {
+    return JSON.stringify(err.message);
+  }
+  if (typeof err.error_description === 'string') return err.error_description;
+  if (typeof err.error === 'string') return err.error;
+  
+  try {
+    const str = JSON.stringify(err);
+    if (str && str !== '{}') return str;
+  } catch {}
+  
+  return err.toString() || 'An unexpected error occurred.';
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -115,7 +134,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'Sign in failed.' };
       }
     } catch (err: any) {
-      return { success: false, error: err.message || 'An error occurred during login.' };
+      return { success: false, error: formatAuthError(err) };
     } finally {
       setLoading(false);
     }
@@ -189,7 +208,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'Registration succeeded, check your email for verification.' };
       }
     } catch (err: any) {
-      return { success: false, error: err.message || 'An error occurred during signup.' };
+      return { success: false, error: formatAuthError(err) };
     } finally {
       setLoading(false);
     }
