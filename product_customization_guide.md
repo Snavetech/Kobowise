@@ -54,14 +54,14 @@ Click any link below to jump directly to the code for that product:
 * **Fresh Farm Produce (Abraka Local Markets)**
   * Tomatoes: [prod-17 at L395](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L395)
   * Potatoes: [prod-18 at L411](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L411)
-  * Pack of Bottled Coke: [prod-19 at L423](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L423)
+  * Corn Flakes: [prod-19 at L423](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L423)
 
 * **Personal Care & Cleaning**
   * Dettol Soap: [prod-20 at L443](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L443)
   * Close Up Toothpaste: [prod-21 at L459](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L459)
-  * Nivea Lotion: [prod-22 at L475](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L475)
+  * Spaghetti: [prod-22 at L472](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L472)
   * Sunlight Detergent: [prod-23 at L491](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L491)
-  * Golden Morn Carton: [prod-24 at L503](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L503)
+  * Coca-Cola: [prod-24 at L503](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L503)
 
 * **DELSU Student Materials & Gadgets**
   * Power Bank: [prod-3 at L170](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L170)

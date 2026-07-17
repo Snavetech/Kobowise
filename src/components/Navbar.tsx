@@ -17,7 +17,8 @@ import {
   ClipboardList,
   Leaf,
   ChevronDown,
-  Heart
+  Heart,
+  Sparkles
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -310,6 +311,32 @@ export const Navbar: React.FC<NavbarProps> = ({
             <User size={18} />
             Profile
           </Link>
+
+          {user.role === 'buyer' && (
+            <button 
+              onClick={() => window.dispatchEvent(new CustomEvent('start_user_tour'))}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '12px 14px',
+                borderRadius: '12px',
+                fontSize: '14px',
+                fontWeight: '600',
+                color: 'var(--text-secondary)',
+                backgroundColor: 'transparent',
+                border: 'none',
+                width: '100%',
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'all 0.2s'
+              }}
+              className="sidebar-link"
+            >
+              <Sparkles size={18} style={{ color: 'var(--accent-gold)' }} />
+              Welcome Guide
+            </button>
+          )}
         </div>
 
         {/* TRADER OPTIONS */}
@@ -738,6 +765,31 @@ export const Navbar: React.FC<NavbarProps> = ({
             </Link>
           )}
           <Link to="/settings" onClick={() => setMobileMenuOpen(false)} style={{ fontWeight: '600', padding: '6px 0', textDecoration: 'none', color: '#0F172A' }}>Settings</Link>
+          
+          {user.role === 'buyer' && (
+            <button 
+              onClick={() => {
+                setMobileMenuOpen(false);
+                window.dispatchEvent(new CustomEvent('start_user_tour'));
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 0',
+                fontWeight: '600',
+                color: '#0F172A',
+                backgroundColor: 'transparent',
+                border: 'none',
+                width: '100%',
+                cursor: 'pointer',
+                textAlign: 'left'
+              }}
+            >
+              <Sparkles size={18} style={{ color: 'var(--accent-gold)' }} />
+              Welcome Guide
+            </button>
+          )}
 
           {isDemoMode && (
             <button 

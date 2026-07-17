@@ -3,6 +3,7 @@ import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'reac
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { Navbar } from './components/Navbar';
+import { UserGuideTour } from './components/UserGuideTour';
 import { LandingPage } from './pages/LandingPage';
 import { Home } from './pages/Home';
 import { ProductDetails } from './pages/ProductDetails';
@@ -155,6 +156,8 @@ const AppLayout: React.FC = () => {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+
+      <UserGuideTour />
     </div>
   );
 };

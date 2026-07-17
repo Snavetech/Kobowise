@@ -248,7 +248,7 @@ export const TraderDashboard: React.FC = () => {
               Trader Dashboard
             </span>
             <h1 style={{ fontSize: '32px', color: '#0F172A', fontFamily: 'var(--font-heading)', fontWeight: '800', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '10px' }} className="dashboard-title">
-              {user?.full_name || 'KoboWise Stores'}
+              {user?.full_name || 'Demo KoboWise Stores'}
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
                 <circle cx="12" cy="12" r="12" fill="#2563EB"/>
                 <path d="M9.5 12.5L11 14L15 10" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>

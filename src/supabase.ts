@@ -127,7 +127,7 @@ const MOCK_CATEGORIES: Category[] = [
 ];
 
 const MOCK_PROFILES: Profile[] = [
-  { id: 'trader-1', role: 'trader', full_name: 'KoboWise Store', phone_number: '08031112222' },
+  { id: 'trader-1', role: 'trader', full_name: 'Demo KoboWise Stores', phone_number: '08031112222' },
   { id: 'buyer-1', role: 'buyer', full_name: 'Omologe Evans', student_id: 'FOS/22/23/287502', phone_number: '08123456789' }
 ];
 
@@ -142,7 +142,7 @@ const MOCK_PRODUCTS: Product[] = [
     total_price: 18000,
     total_shares: 4,
     price_per_share: 4500,
-    stock_quantity: 12,
+    stock_quantity: 30,
     estimated_delivery: 'Same Day Delivery',
     pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
@@ -158,7 +158,7 @@ const MOCK_PRODUCTS: Product[] = [
     total_price: 24000,
     total_shares: 4,
     price_per_share: 6000,
-    stock_quantity: 20,
+    stock_quantity: 30,
     estimated_delivery: '1-2 Days',
     pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
@@ -174,7 +174,7 @@ const MOCK_PRODUCTS: Product[] = [
     total_price: 1200,
     total_shares: 2,
     price_per_share: 600,
-    stock_quantity: 15,
+    stock_quantity: 30,
     estimated_delivery: 'Same Day Pickup',
     pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
@@ -190,7 +190,7 @@ const MOCK_PRODUCTS: Product[] = [
     total_price: 3450,
     total_shares: 2,
     price_per_share: 1725,
-    stock_quantity: 8,
+    stock_quantity: 30,
     estimated_delivery: 'Same Day Pickup',
     pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
@@ -206,7 +206,7 @@ const MOCK_PRODUCTS: Product[] = [
     total_price: 6000,
     total_shares: 1,
     price_per_share: 5600,
-    stock_quantity: 50,
+    stock_quantity: 30,
     estimated_delivery: 'Immediate Pickup',
     pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
@@ -222,7 +222,7 @@ const MOCK_PRODUCTS: Product[] = [
     total_price: 5600,
     total_shares: 4,
     price_per_share: 1400,
-    stock_quantity: 6,
+    stock_quantity: 30,
     estimated_delivery: '1 Day Delivery',
     pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
@@ -238,7 +238,7 @@ const MOCK_PRODUCTS: Product[] = [
     total_price: 32000,
     total_shares: 4,
     price_per_share: 8000,
-    stock_quantity: 10,
+    stock_quantity: 30,
     estimated_delivery: 'Same Day Delivery',
     pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
@@ -254,7 +254,7 @@ const MOCK_PRODUCTS: Product[] = [
     total_price: 16000,
     total_shares: 4,
     price_per_share: 4000,
-    stock_quantity: 15,
+    stock_quantity: 30,
     estimated_delivery: 'Same Day Delivery',
     pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
@@ -270,7 +270,7 @@ const MOCK_PRODUCTS: Product[] = [
     total_price: 18000,
     total_shares: 4,
     price_per_share: 4500,
-    stock_quantity: 12,
+    stock_quantity: 30,
     estimated_delivery: '1-2 Days',
     pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
@@ -286,7 +286,7 @@ const MOCK_PRODUCTS: Product[] = [
     total_price: 11000,
     total_shares: 2,
     price_per_share: 5500,
-    stock_quantity: 25,
+    stock_quantity: 30,
     estimated_delivery: 'Same Day Pickup',
     pickup_location: 'DELSU Site III Gate Shop 1A',
     status: 'active',
@@ -302,7 +302,7 @@ const MOCK_PRODUCTS: Product[] = [
     total_price: 3000,
     total_shares: 3,
     price_per_share: 1000,
-    stock_quantity: 10,
+    stock_quantity: 30,
     estimated_delivery: '1-2 Days',
     pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
@@ -318,7 +318,7 @@ const MOCK_PRODUCTS: Product[] = [
     total_price: 12000,
     total_shares: 4,
     price_per_share: 3000,
-    stock_quantity: 18,
+    stock_quantity: 30,
     estimated_delivery: 'Same Day Pickup',
     pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
@@ -334,7 +334,7 @@ const MOCK_PRODUCTS: Product[] = [
     total_price: 2400,
     total_shares: 1,
     price_per_share: 2400,
-    stock_quantity: 20,
+    stock_quantity: 30,
     estimated_delivery: 'Same Day Delivery',
     pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
@@ -366,11 +366,11 @@ const MOCK_PRODUCTS: Product[] = [
     total_price: 8000,
     total_shares: 4,
     price_per_share: 2000,
-    stock_quantity: 20,
+    stock_quantity: 30,
     estimated_delivery: '1 Day Delivery',
     pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
-    image_url: 'https://images.unsplash.com/photo-1599490659213-e2b9527bb087?w=500&auto=format&fit=crop&q=60'
+    image_url: '/images/chinchin.jfif'
   },
   {
     id: 'prod-16',
@@ -382,7 +382,7 @@ const MOCK_PRODUCTS: Product[] = [
     total_price: 15000,
     total_shares: 2,
     price_per_share: 7500,
-    stock_quantity: 15,
+    stock_quantity: 30,
     estimated_delivery: 'Same Day Pickup',
     pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
@@ -398,7 +398,7 @@ const MOCK_PRODUCTS: Product[] = [
     total_price: 12000,
     total_shares: 3,
     price_per_share: 4000,
-    stock_quantity: 8,
+    stock_quantity: 30,
     estimated_delivery: 'Same Day Delivery',
     pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
@@ -414,7 +414,7 @@ const MOCK_PRODUCTS: Product[] = [
     total_price: 8000,
     total_shares: 2,
     price_per_share: 4000,
-    stock_quantity: 15,
+    stock_quantity: 30,
     estimated_delivery: '1 Day Delivery',
     pickup_location: 'DELSU Site III Gate Shop 1A',
     status: 'active',
@@ -423,18 +423,18 @@ const MOCK_PRODUCTS: Product[] = [
   {
     id: 'prod-19',
     trader_id: 'trader-1',
-    category_id: 'cat-7',
-    name: 'Abraka Sweet Oranges (Basket of 50)',
-    description: 'Juicy, fresh green oranges sourced locally. Perfect for boosting vitamin C. Share a basket with another student.',
-    shares_per_person: '25 Oranges',
+    category_id: 'cat-1',
+    name: 'Kellogg\'s Corn Flakes (Pack of 2)',
+    description: 'Crispy, delicious, and toasted corn flakes. Perfect morning breakfast for students. Split a pack of 2 with another student.',
+    shares_per_person: '1 Pack',
     total_price: 5000,
     total_shares: 2,
     price_per_share: 2500,
-    stock_quantity: 10,
+    stock_quantity: 30,
     estimated_delivery: 'Same Day Pickup',
     pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
-    image_url: 'https://images.unsplash.com/photo-1547514701-42782101795e?w=500&auto=format&fit=crop&q=60'
+    image_url: '/images/cornflakes.png'
   },
   {
     id: 'prod-20',
@@ -446,11 +446,11 @@ const MOCK_PRODUCTS: Product[] = [
     total_price: 3150,
     total_shares: 3,
     price_per_share: 1050,
-    stock_quantity: 22,
+    stock_quantity: 30,
     estimated_delivery: 'Immediate Pickup',
     pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
-    image_url: 'https://www.jumia.com.ng/cool-anti-bacterial-soap-110g-pack-of-3-dettol-mpg1635800.html?srsltid=AfmBOopmmkArnk-DV2tS-kMo83wuvD5eMjb8QuR-zHBVyP0liYt32d7a'
+    image_url: '/images/Dettol.jpg'
   },
   {
     id: 'prod-21',
@@ -462,27 +462,27 @@ const MOCK_PRODUCTS: Product[] = [
     total_price: 8000,
     total_shares: 2,
     price_per_share: 4000,
-    stock_quantity: 15,
+    stock_quantity: 30,
     estimated_delivery: 'Same Day Pickup',
     pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
-    image_url: 'https://images.unsplash.com/photo-1559599101-f09722fb4948?w=500&auto=format&fit=crop&q=60'
+    image_url: '/images/closeup.jfif'
   },
   {
     id: 'prod-22',
     trader_id: 'trader-1',
-    category_id: 'cat-8',
-    name: 'Nivea Aloe Hydration Body Lotion (Pack of 6)',
-    description: 'Deep moisture body lotion with aloe vera extracts. Split a pack of 6 with 2 other roommates.',
-    shares_per_person: '2 Lotion Bottles',
-    total_price: 18000,
-    total_shares: 3,
-    price_per_share: 6000,
-    stock_quantity: 8,
-    estimated_delivery: '1-2 Days',
+    category_id: 'cat-1',
+    name: 'Golden Penny Spaghetti',
+    description: 'Tasty, non-sticky Golden Penny spaghetti. Perfect fast-cooking meal for students. Split a carton of 20 packs with 3 other students and get 5 packs each.',
+    shares_per_person: '5 Packs',
+    total_price: 16000,
+    total_shares: 4,
+    price_per_share: 4000,
+    stock_quantity: 30,
+    estimated_delivery: 'Same Day Pickup',
     pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
-    image_url: 'https://images.unsplash.com/photo-1608248597481-496100c80836?w=500&auto=format&fit=crop&q=60'
+    image_url: '/images/Goldenpennyspaghetti.webp'
   },
   {
     id: 'prod-23',
@@ -494,27 +494,27 @@ const MOCK_PRODUCTS: Product[] = [
     total_price: 12000,
     total_shares: 3,
     price_per_share: 4000,
-    stock_quantity: 14,
+    stock_quantity: 30,
     estimated_delivery: '1-2 Days',
     pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
-    image_url: 'https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=500&auto=format&fit=crop&q=60'
+    image_url: '/images/sunlight.jpg'
   },
   {
     id: 'prod-24',
     trader_id: 'trader-1',
-    category_id: 'cat-9',
-    name: 'Hypo Bleach Carton (12 Bottles)',
-    description: 'Hypo super bleach bottles for cleaning and laundry whites. Split in half with another student for a bulk deal.',
+    category_id: 'cat-4',
+    name: 'Coca-Cola Pet Bottles Carton (12 Pack)',
+    description: 'Chilled, refreshing Coca-Cola pet bottles (50cl). Perfect for refreshments, parties, or study sessions. Split with another student.',
     shares_per_person: '6 Bottles',
-    total_price: 14000,
+    total_price: 4800,
     total_shares: 2,
-    price_per_share: 7000,
-    stock_quantity: 12,
+    price_per_share: 2400,
+    stock_quantity: 30,
     estimated_delivery: 'Same Day Pickup',
-    pickup_location: 'DELSU Site III Gate Shop 1A',
+    pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
-    image_url: 'https://images.unsplash.com/photo-1563453392212-326f5e854473?w=500&auto=format&fit=crop&q=60'
+    image_url: '/images/coke.png'
   }
 ];
 
@@ -609,7 +609,7 @@ export const initializeMockDb = (force = false): void => {
     try {
       const parsedProfiles = JSON.parse(storedProfiles) as Profile[];
       const hasOldTraders = parsedProfiles.some(p => p.id === 'trader-2' || p.id === 'trader-3' || p.id === 'trader-4');
-      const hasKoboWise = parsedProfiles.some(p => p.full_name === 'KoboWise Stores');
+      const hasKoboWise = parsedProfiles.some(p => p.full_name === 'Demo KoboWise Stores');
       if (hasOldTraders || !hasKoboWise) {
         localStorage.removeItem('kobowise_profiles');
         localStorage.removeItem('kobowise_products');
@@ -627,7 +627,9 @@ export const initializeMockDb = (force = false): void => {
       if (
         parsed.some(p => (p.total_shares !== 1 && p.total_shares !== 2 && p.total_shares !== 4) || !p.shares_per_person) || 
         parsed.length < 24 || 
-        parsed.some(p => p.name === 'DELSU Student ID')
+        parsed.some(p => p.name === 'DELSU Student ID') ||
+        parsed.some(p => p.name.toLowerCase().includes('nivea')) ||
+        parsed.some(p => p.name.toLowerCase().includes('oranges'))
       ) {
         localStorage.removeItem('kobowise_products');
         localStorage.removeItem('kobowise_group_orders');
