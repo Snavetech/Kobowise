@@ -11,9 +11,9 @@ export const Settings: React.FC = () => {
   // Profile fields
   const [fullName, setFullName] = useState(user?.full_name || 'Chioma Obi');
   const [phoneNumber, setPhoneNumber] = useState(user?.phone_number || '08012345678');
-  const [studentId, setStudentId] = useState(user?.student_id || 'DEL/2021/4721');
+  const [studentId, setStudentId] = useState(user?.student_id || 'FOS/22/23/267776');
   const [email, setEmail] = useState((user as any)?.email || 'chioma.obi@student.delsu.edu.ng');
-  const [pickupPoint, setPickupPoint] = useState('DELSU Site II Gate');
+  const [pickupPoint, setPickupPoint] = useState('DELSU Site II Gate Shop 1B');
   
   // Notifications toggles (Image 2)
   const [groupUpdates, setGroupUpdates] = useState(true);
@@ -269,9 +269,8 @@ export const Settings: React.FC = () => {
                       className="form-control"
                       style={{ paddingLeft: '40px' }}
                     >
-                      <option value="DELSU Site II Gate">DELSU Site II Gate</option>
-                      <option value="DELSU Site III Campus Gate">DELSU Site III Campus Gate</option>
-                      <option value="Abraka Main Market">Abraka Main Market</option>
+                      <option value="DELSU Site II Gate Shop 1B">DELSU Site II Gate Shop 1B</option>
+                      <option value="DELSU Site III Gate Shop 1A">DELSU Site III Gate Shop 1A</option>
                     </select>
                   </div>
                 </div>

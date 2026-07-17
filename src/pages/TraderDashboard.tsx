@@ -46,7 +46,7 @@ export const TraderDashboard: React.FC = () => {
   const [totalShares, setTotalShares] = useState<number>(4);
   const [stockQuantity, setStockQuantity] = useState<number>(5);
   const [estimatedDelivery, setEstimatedDelivery] = useState('Same Day Delivery');
-  const [pickupLocation, setPickupLocation] = useState('Site II Gate');
+  const [pickupLocation, setPickupLocation] = useState('DELSU Site II Gate Shop 1B');
   const [imageUrl, setImageUrl] = useState('');
 
   // Computed Share Price
@@ -191,7 +191,7 @@ export const TraderDashboard: React.FC = () => {
     setTotalShares(4);
     setStockQuantity(5);
     setEstimatedDelivery('Same Day Delivery');
-    setPickupLocation('Site II Gate');
+    setPickupLocation('DELSU Site II Gate Shop 1B');
     setImageUrl('');
     setShowAddForm(false);
   };
@@ -880,7 +880,7 @@ export const TraderDashboard: React.FC = () => {
                     type="text" 
                     value={pickupLocation} 
                     onChange={(e) => setPickupLocation(e.target.value)} 
-                    placeholder="e.g. Site II Gate Shop 4B" 
+                    placeholder="e.g. DELSU Site II Gate Shop 1B" 
                     className="form-control" 
                     required 
                   />

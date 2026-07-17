@@ -298,7 +298,7 @@ export const LandingPage: React.FC = () => {
               { num: 1, title: 'Browse Bulk Items', desc: 'Select a bulk product listed by trusted DELSU campus traders, divided into equal affordable shares.', color: '#1E3A8A' },
               { num: 2, title: 'Buy Your Portions', desc: 'Pay securely for the shares you want (e.g. 1 share of Indomie = 10 packs) using Paystack checkout.', color: '#2563EB' },
               { num: 3, title: 'Real-time Group Lock', desc: 'Track the progress bar. As other students buy the remaining shares, the group fills and locks.', color: '#3B82F6' },
-              { num: 4, title: 'Collect on Campus', desc: 'Receive a completion alert, go to the pickup point (e.g. Site II Gate), collect your share, and enjoy!', color: '#60A5FA' },
+              { num: 4, title: 'Collect on Campus', desc: 'Receive a completion alert, go to the pickup point (e.g. DELSU Site II Gate Shop 1B), collect your share, and enjoy!', color: '#60A5FA' },
             ].map((step) => (
               <div key={step.num} className="step-card" style={{
                 textAlign: 'center',
@@ -377,7 +377,7 @@ export const LandingPage: React.FC = () => {
                   {
                     icon: <Truck size={22} />,
                     title: 'Pickup Points at Your Doorstep',
-                    desc: 'Pick up your portion at Site II Gate, Site III Co-operative, or opt for cheap direct hostel delivery.',
+                    desc: 'Pick up your portion at DELSU Site II Gate Shop 1B, DELSU Site III Gate Shop 1A, or opt for cheap direct hostel delivery.',
                     gradient: 'linear-gradient(135deg, #F0F9FF, #BAE6FD)'
                   }
                 ].map((feature, i) => (

@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { User, Store, Smartphone, Mail, Lock, BookOpen } from 'lucide-react';
 
 export const SignUp: React.FC = () => {
-  const { signUp } = useAuth();
+  const { signUp, user } = useAuth();
   const navigate = useNavigate();
 
   const [role, setRole] = useState<'buyer' | 'trader'>('buyer');
@@ -16,6 +16,7 @@ export const SignUp: React.FC = () => {
 
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isRegistered, setIsRegistered] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,11 +42,81 @@ export const SignUp: React.FC = () => {
     setLoading(false);
 
     if (res.success) {
-      navigate(role === 'trader' ? '/trader-dashboard' : '/home');
+      setIsRegistered(true);
     } else {
       setErrorMsg(res.error || 'Registration failed. Please check details and try again.');
     }
   };
+
+  if (isRegistered) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        padding: '40px 16px',
+        minHeight: '90vh',
+        background: 'linear-gradient(180deg, #EFF6FF 0%, #F8FAFC 100%)'
+      }}>
+        <div style={{ 
+          width: '100%', 
+          maxWidth: '480px', 
+          backgroundColor: '#FFFFFF', 
+          borderRadius: '24px', 
+          border: '1px solid #DBEAFE', 
+          padding: '40px 36px',
+          boxShadow: '0 8px 32px rgba(30, 64, 175, 0.08)',
+          textAlign: 'center'
+        }}>
+          <div style={{
+            width: '64px',
+            height: '64px',
+            borderRadius: '50%',
+            backgroundColor: '#EFF6FF',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 24px auto',
+            color: '#2563EB'
+          }}>
+            <Mail size={32} />
+          </div>
+          <h2 style={{ fontSize: '24px', color: '#0F172A', marginBottom: '12px', fontFamily: 'var(--font-heading)', fontWeight: '800' }}>
+            Confirm Your Email
+          </h2>
+          <p style={{ color: '#475569', fontSize: '14px', lineHeight: '1.6', marginBottom: '24px' }}>
+            We've sent a verification link to <strong style={{ color: '#0F172A' }}>{email}</strong>. 
+            Please check your inbox (and spam folder) and click the link to confirm your account.
+          </p>
+          <button 
+            onClick={() => {
+              if (user) {
+                navigate(user.role === 'trader' ? '/trader-dashboard' : '/home');
+              } else {
+                navigate('/login');
+              }
+            }}
+            className="btn btn-secondary btn-full"
+            style={{ 
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '48px', 
+              borderRadius: '14px',
+              background: 'linear-gradient(135deg, #2563EB, #3B82F6)',
+              fontSize: '15px',
+              fontWeight: '700',
+              border: 'none',
+              cursor: 'pointer',
+              boxShadow: '0 4px 14px rgba(37, 99, 235, 0.2)'
+            }}
+          >
+            {user ? 'Continue to App' : 'Go to Login'}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ 
@@ -182,7 +253,7 @@ export const SignUp: React.FC = () => {
                 <BookOpen size={16} style={{ position: 'absolute', left: '14px', color: 'var(--text-muted)' }} />
                 <input 
                   type="text" 
-                  placeholder="e.g. DEL/2022/492" 
+                  placeholder="e.g. FOS/22/23/267776" 
                   value={studentId}
                   onChange={(e) => setStudentId(e.target.value)}
                   className="form-control"

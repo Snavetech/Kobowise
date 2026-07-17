@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     role TEXT NOT NULL CHECK (role IN ('buyer', 'trader')),
     full_name TEXT,
-    student_id TEXT, -- Student Matric Number (e.g. DEL/2021/045)
+    student_id TEXT, -- Student Matric Number (e.g. FOS/22/23/267776)
     phone_number TEXT,
     avatar_url TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

@@ -22,7 +22,7 @@ For each product, you can customize the following fields:
   price_per_share: 16000,                                // <--- Cost per student (total_price / total_shares)
   stock_quantity: 12,                                    // <--- Available stock
   estimated_delivery: '1-2 Days',                         // <--- Delivery timeframe
-  pickup_location: 'Abraka Main Market (Opposite DELSU Gate)', // <--- Pickup point in Abraka
+  pickup_location: 'DELSU Site II Gate Shop 1B', // <--- Pickup point example
   status: 'active',
   image_url: 'https://images.unsplash.com/...'           // <--- Image path (e.g. '/images/rice.jpg')
 }
@@ -49,19 +49,19 @@ Click any link below to jump directly to the code for that product:
   * Three Crowns: [prod-13 at L331](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L331)
   * Cabin Biscuits: [prod-14 at L347](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L347)
   * Chin Chin: [prod-15 at L363](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L363)
-  * Corn Flakes: [prod-16 at L379](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L379)
+  * Corn Flakes: [prod-16 at L376](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L376)
 
 * **Fresh Farm Produce (Abraka Local Markets)**
   * Tomatoes: [prod-17 at L395](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L395)
   * Potatoes: [prod-18 at L411](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L411)
-  * Oranges: [prod-19 at L427](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L427)
+  * Pack of Bottled Coke: [prod-19 at L423](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L423)
 
 * **Personal Care & Cleaning**
   * Dettol Soap: [prod-20 at L443](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L443)
   * Close Up Toothpaste: [prod-21 at L459](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L459)
   * Nivea Lotion: [prod-22 at L475](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L475)
   * Sunlight Detergent: [prod-23 at L491](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L491)
-  * Hypo Bleach: [prod-24 at L507](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L507)
+  * Golden Morn Carton: [prod-24 at L503](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L503)
 
 * **DELSU Student Materials & Gadgets**
   * Power Bank: [prod-3 at L170](file:///c:/Users/Ismail/Documents/Kobowise/src/supabase.ts#L170)

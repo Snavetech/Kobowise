@@ -144,7 +144,7 @@ const MOCK_PRODUCTS: Product[] = [
     price_per_share: 4500,
     stock_quantity: 12,
     estimated_delivery: 'Same Day Delivery',
-    pickup_location: 'DELSU Site II Gate Shop 4B',
+    pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
     image_url: '/images/Garri.png'
   },
@@ -160,7 +160,7 @@ const MOCK_PRODUCTS: Product[] = [
     price_per_share: 6000,
     stock_quantity: 20,
     estimated_delivery: '1-2 Days',
-    pickup_location: 'DELSU Site II Gate Shop 4B',
+    pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
     image_url: '/images/Indomie.jpg'
   },
@@ -176,7 +176,7 @@ const MOCK_PRODUCTS: Product[] = [
     price_per_share: 600,
     stock_quantity: 15,
     estimated_delivery: 'Same Day Pickup',
-    pickup_location: 'DELSU Site II Gate Shop 4B',
+    pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
     image_url: '/images/Bread.png'
   },
@@ -192,7 +192,7 @@ const MOCK_PRODUCTS: Product[] = [
     price_per_share: 1725,
     stock_quantity: 8,
     estimated_delivery: 'Same Day Pickup',
-    pickup_location: 'DELSU Site II Gate Shop 4B',
+    pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
     image_url: '/images/Groundnut oil.png'
   },
@@ -208,7 +208,7 @@ const MOCK_PRODUCTS: Product[] = [
     price_per_share: 5600,
     stock_quantity: 50,
     estimated_delivery: 'Immediate Pickup',
-    pickup_location: 'DELSU Site II Gate Shop 4B',
+    pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
     image_url: '/images/Notebook.jfif'
   },
@@ -224,7 +224,7 @@ const MOCK_PRODUCTS: Product[] = [
     price_per_share: 1400,
     stock_quantity: 6,
     estimated_delivery: '1 Day Delivery',
-    pickup_location: 'DELSU Site II Gate Shop 4B',
+    pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
     image_url: '/images/Eggs.png'
   },
@@ -240,7 +240,7 @@ const MOCK_PRODUCTS: Product[] = [
     price_per_share: 8000,
     stock_quantity: 10,
     estimated_delivery: 'Same Day Delivery',
-    pickup_location: 'DELSU Site II Gate Shop 4B',
+    pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
     image_url: '/images/Bag of rice.png'
   },
@@ -256,7 +256,7 @@ const MOCK_PRODUCTS: Product[] = [
     price_per_share: 4000,
     stock_quantity: 15,
     estimated_delivery: 'Same Day Delivery',
-    pickup_location: 'DELSU Site II Gate Shop 4B',
+    pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
     image_url: '/images/Milo.png'
   },
@@ -272,7 +272,7 @@ const MOCK_PRODUCTS: Product[] = [
     price_per_share: 4500,
     stock_quantity: 12,
     estimated_delivery: '1-2 Days',
-    pickup_location: 'DELSU Site II Gate Shop 4B',
+    pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
     image_url: '/images/Beans.png'
   },
@@ -288,7 +288,7 @@ const MOCK_PRODUCTS: Product[] = [
     price_per_share: 5500,
     stock_quantity: 25,
     estimated_delivery: 'Same Day Pickup',
-    pickup_location: 'Site III Co-operative Bookstore',
+    pickup_location: 'DELSU Site III Gate Shop 1A',
     status: 'active',
     image_url: '/images/Macroni.png'
   },
@@ -304,7 +304,7 @@ const MOCK_PRODUCTS: Product[] = [
     price_per_share: 1000,
     stock_quantity: 10,
     estimated_delivery: '1-2 Days',
-    pickup_location: 'DELSU Site II Gate Shop 4B',
+    pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
     image_url: '/images/Maggi.png'
   },
@@ -320,7 +320,7 @@ const MOCK_PRODUCTS: Product[] = [
     price_per_share: 3000,
     stock_quantity: 18,
     estimated_delivery: 'Same Day Pickup',
-    pickup_location: 'DELSU Site II Gate Shop 4B',
+    pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
     image_url: '/images/Milk.png'
   },
@@ -336,7 +336,7 @@ const MOCK_PRODUCTS: Product[] = [
     price_per_share: 2400,
     stock_quantity: 20,
     estimated_delivery: 'Same Day Delivery',
-    pickup_location: 'Abraka Main Market',
+    pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
     image_url: '/images/1L of oil.png'
   },
@@ -352,7 +352,7 @@ const MOCK_PRODUCTS: Product[] = [
     price_per_share: 1500,
     stock_quantity: 30,
     estimated_delivery: 'Same Day Pickup',
-    pickup_location: 'Abraka Main Market',
+    pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
     image_url: '/images/sugar-1.webp'
   },
@@ -368,7 +368,7 @@ const MOCK_PRODUCTS: Product[] = [
     price_per_share: 2000,
     stock_quantity: 20,
     estimated_delivery: '1 Day Delivery',
-    pickup_location: 'DELSU Site II Gate Shop 4B',
+    pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
     image_url: 'https://images.unsplash.com/photo-1599490659213-e2b9527bb087?w=500&auto=format&fit=crop&q=60'
   },
@@ -384,7 +384,7 @@ const MOCK_PRODUCTS: Product[] = [
     price_per_share: 7500,
     stock_quantity: 15,
     estimated_delivery: 'Same Day Pickup',
-    pickup_location: 'Site II Campus Gate Gadget Hub',
+    pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
     image_url: '/images/GoldenMorn.png'
   },
@@ -400,7 +400,7 @@ const MOCK_PRODUCTS: Product[] = [
     price_per_share: 4000,
     stock_quantity: 8,
     estimated_delivery: 'Same Day Delivery',
-    pickup_location: 'Abraka Main Market',
+    pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
     image_url: '/images/tomatoes.png'
   },
@@ -416,7 +416,7 @@ const MOCK_PRODUCTS: Product[] = [
     price_per_share: 4000,
     stock_quantity: 15,
     estimated_delivery: '1 Day Delivery',
-    pickup_location: 'Site III Co-operative Bookstore',
+    pickup_location: 'DELSU Site III Gate Shop 1A',
     status: 'active',
     image_url: '/images/yams.png'
   },
@@ -432,7 +432,7 @@ const MOCK_PRODUCTS: Product[] = [
     price_per_share: 2500,
     stock_quantity: 10,
     estimated_delivery: 'Same Day Pickup',
-    pickup_location: 'Abraka Main Market',
+    pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
     image_url: 'https://images.unsplash.com/photo-1547514701-42782101795e?w=500&auto=format&fit=crop&q=60'
   },
@@ -448,7 +448,7 @@ const MOCK_PRODUCTS: Product[] = [
     price_per_share: 1050,
     stock_quantity: 22,
     estimated_delivery: 'Immediate Pickup',
-    pickup_location: 'Site II Campus Gate Gadget Hub',
+    pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
     image_url: 'https://www.jumia.com.ng/cool-anti-bacterial-soap-110g-pack-of-3-dettol-mpg1635800.html?srsltid=AfmBOopmmkArnk-DV2tS-kMo83wuvD5eMjb8QuR-zHBVyP0liYt32d7a'
   },
@@ -464,7 +464,7 @@ const MOCK_PRODUCTS: Product[] = [
     price_per_share: 4000,
     stock_quantity: 15,
     estimated_delivery: 'Same Day Pickup',
-    pickup_location: 'Abraka Main Market',
+    pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
     image_url: 'https://images.unsplash.com/photo-1559599101-f09722fb4948?w=500&auto=format&fit=crop&q=60'
   },
@@ -480,7 +480,7 @@ const MOCK_PRODUCTS: Product[] = [
     price_per_share: 6000,
     stock_quantity: 8,
     estimated_delivery: '1-2 Days',
-    pickup_location: 'Site II Campus Gate Gadget Hub',
+    pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
     image_url: 'https://images.unsplash.com/photo-1608248597481-496100c80836?w=500&auto=format&fit=crop&q=60'
   },
@@ -496,7 +496,7 @@ const MOCK_PRODUCTS: Product[] = [
     price_per_share: 4000,
     stock_quantity: 14,
     estimated_delivery: '1-2 Days',
-    pickup_location: 'DELSU Site II Gate Shop 4B',
+    pickup_location: 'DELSU Site II Gate Shop 1B',
     status: 'active',
     image_url: 'https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=500&auto=format&fit=crop&q=60'
   },
@@ -512,7 +512,7 @@ const MOCK_PRODUCTS: Product[] = [
     price_per_share: 7000,
     stock_quantity: 12,
     estimated_delivery: 'Same Day Pickup',
-    pickup_location: 'Site III Co-operative Bookstore',
+    pickup_location: 'DELSU Site III Gate Shop 1A',
     status: 'active',
     image_url: 'https://images.unsplash.com/photo-1563453392212-326f5e854473?w=500&auto=format&fit=crop&q=60'
   }
