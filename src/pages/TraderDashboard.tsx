@@ -14,6 +14,7 @@ import {
   ShoppingBag, 
   X, 
   Image,
+  Upload,
   FolderOpen,
   AlertTriangle,
   Package,
@@ -48,6 +49,7 @@ export const TraderDashboard: React.FC = () => {
   const [estimatedDelivery, setEstimatedDelivery] = useState('Same Day Delivery');
   const [pickupLocation, setPickupLocation] = useState('DELSU Site II Gate Shop 1B');
   const [imageUrl, setImageUrl] = useState('');
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   // Computed Share Price
   const computedSharePrice = totalPrice > 0 && totalShares > 0 ? totalPrice / totalShares : 0;
@@ -161,6 +163,7 @@ export const TraderDashboard: React.FC = () => {
     setEstimatedDelivery(p.estimated_delivery);
     setPickupLocation(p.pickup_location);
     setImageUrl(p.image_url);
+    setImagePreview(p.image_url);
     setShowAddForm(true);
   };
 
@@ -193,7 +196,33 @@ export const TraderDashboard: React.FC = () => {
     setEstimatedDelivery('Same Day Delivery');
     setPickupLocation('DELSU Site II Gate Shop 1B');
     setImageUrl('');
+    setImagePreview(null);
     setShowAddForm(false);
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      addToast('Please select an image file (JPG, PNG, WebP, etc.)', 'warning');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      addToast('Image must be smaller than 5MB', 'warning');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      setImageUrl(dataUrl);
+      setImagePreview(dataUrl);
+    };
+    reader.readAsDataURL(file);
   };
 
   // Calculations for Trader Analytics
@@ -248,7 +277,7 @@ export const TraderDashboard: React.FC = () => {
               Trader Dashboard
             </span>
             <h1 style={{ fontSize: '32px', color: '#0F172A', fontFamily: 'var(--font-heading)', fontWeight: '800', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '10px' }} className="dashboard-title">
-              {user?.full_name || 'Demo KoboWise Stores'}
+              {user?.full_name || 'KoboWise Store'}
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
                 <circle cx="12" cy="12" r="12" fill="#2563EB"/>
                 <path d="M9.5 12.5L11 14L15 10" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -515,7 +544,7 @@ export const TraderDashboard: React.FC = () => {
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                   <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ color: '#2563EB' }}>🔔</span> Alerts
+                    <i className="fa-solid fa-bell" style={{ color: '#2563EB' }}></i> Alerts
                   </h3>
                   <span style={{ backgroundColor: '#F97316', color: '#FFFFFF', fontSize: '11px', fontWeight: '800', padding: '2px 8px', borderRadius: '6px' }}>
                     3 new
@@ -524,9 +553,9 @@ export const TraderDashboard: React.FC = () => {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   {[
-                    { icon: '⚠️', title: 'Indomie group: 1 spot left! Promote to fill quickly.', time: '5 min ago', bg: '#FEF3C7' },
-                    { icon: '👥', title: 'New buyer joined your 50kg Rice group.', time: '2 hours ago', bg: '#EFF6FF' },
-                    { icon: '📦', title: 'Order #KBW-2038 marked as delivered.', time: 'Yesterday', bg: '#E0F2FE' }
+                    { icon: <i className="fa-solid fa-triangle-exclamation" style={{ color: '#D97706' }}></i>, title: 'Indomie group: 1 spot left! Promote to fill quickly.', time: '5 min ago', bg: '#FEF3C7' },
+                    { icon: <i className="fa-solid fa-users" style={{ color: '#2563EB' }}></i>, title: 'New buyer joined your 50kg Rice group.', time: '2 hours ago', bg: '#EFF6FF' },
+                    { icon: <i className="fa-solid fa-box" style={{ color: '#0284C7' }}></i>, title: 'Order #KBW-2038 marked as delivered.', time: 'Yesterday', bg: '#E0F2FE' }
                   ].map((alert, i) => (
                     <div key={i} style={{ 
                       display: 'flex', 
@@ -617,7 +646,7 @@ export const TraderDashboard: React.FC = () => {
                       
                       {prod.stock_quantity <= 2 && (
                         <span style={{ fontSize: '11px', color: 'var(--status-cancelled)', fontWeight: '700', marginBottom: '12px', display: 'block' }}>
-                          ⚠️ Low stock ({prod.stock_quantity} remaining)
+                          <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '6px' }}></i> Low stock ({prod.stock_quantity} remaining)
                         </span>
                       )}
 
@@ -709,7 +738,7 @@ export const TraderDashboard: React.FC = () => {
                           onClick={() => handleStatusChange(order.id, 'ready_for_pickup')}
                           className="btn btn-secondary btn-sm"
                         >
-                          Mark Ready for Pickup 📦
+                          Mark Ready for Pickup <i className="fa-solid fa-box" style={{ marginLeft: '4px' }}></i>
                         </button>
                       )}
 
@@ -887,18 +916,100 @@ export const TraderDashboard: React.FC = () => {
                 </div>
 
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Product Image URL</label>
-                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                    <Image size={16} style={{ position: 'absolute', left: '14px', color: 'var(--text-muted)' }} />
-                    <input 
-                      type="url" 
-                      value={imageUrl} 
-                      onChange={(e) => setImageUrl(e.target.value)} 
-                      placeholder="https://images.unsplash.com/... (optional)" 
-                      className="form-control" 
-                      style={{ paddingLeft: '40px' }}
-                    />
-                  </div>
+                  <label className="form-label">Product Image</label>
+                  
+                  {/* Image Preview */}
+                  {imagePreview && (
+                    <div style={{ 
+                      position: 'relative', 
+                      marginBottom: '12px', 
+                      borderRadius: '12px', 
+                      overflow: 'hidden', 
+                      border: '1px solid #DBEAFE',
+                      maxHeight: '180px'
+                    }}>
+                      <img 
+                        src={imagePreview} 
+                        alt="Preview" 
+                        style={{ width: '100%', height: '180px', objectFit: 'cover', display: 'block' }} 
+                      />
+                      <button
+                        type="button"
+                        onClick={() => { setImageUrl(''); setImagePreview(null); }}
+                        style={{
+                          position: 'absolute',
+                          top: '8px',
+                          right: '8px',
+                          backgroundColor: 'rgba(0,0,0,0.6)',
+                          color: '#FFFFFF',
+                          border: 'none',
+                          borderRadius: '50%',
+                          width: '28px',
+                          height: '28px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          fontSize: '14px'
+                        }}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Upload Area */}
+                  <label
+                    htmlFor="product-image-upload"
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      padding: imagePreview ? '12px' : '28px 12px',
+                      border: '2px dashed #DBEAFE',
+                      borderRadius: '12px',
+                      backgroundColor: '#F8FAFC',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      textAlign: 'center'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = '#2563EB';
+                      e.currentTarget.style.backgroundColor = '#EFF6FF';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = '#DBEAFE';
+                      e.currentTarget.style.backgroundColor = '#F8FAFC';
+                    }}
+                  >
+                    <div style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '50%',
+                      backgroundColor: '#EFF6FF',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#2563EB'
+                    }}>
+                      <Upload size={20} />
+                    </div>
+                    <span style={{ fontSize: '13px', fontWeight: '700', color: '#2563EB' }}>
+                      {imagePreview ? 'Change Image' : 'Upload from Gallery'}
+                    </span>
+                    <span style={{ fontSize: '11px', color: '#94A3B8' }}>
+                      JPG, PNG, or WebP • Max 5MB
+                    </span>
+                  </label>
+                  <input
+                    id="product-image-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    style={{ display: 'none' }}
+                  />
                 </div>
 
                 <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>

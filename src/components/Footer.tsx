@@ -56,18 +56,18 @@ export const Footer: React.FC = () => {
             <h4 style={{ color: '#FFFFFF', fontSize: '16px', fontWeight: '700', marginBottom: '16px' }}>Quick Links</h4>
             <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '14px' }}>
               <li>
-                <a href="#almost-complete" style={{ color: 'rgba(255,255,255,0.7)', transition: 'color 0.15s' }} onMouseOver={e => e.currentTarget.style.color = '#60A5FA'} onMouseOut={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}>
-                  🔥 Almost Complete
+                <a href="#almost-complete" style={{ color: 'rgba(255,255,255,0.7)', transition: 'color 0.15s', display: 'inline-flex', alignItems: 'center', gap: '6px' }} onMouseOver={e => e.currentTarget.style.color = '#60A5FA'} onMouseOut={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}>
+                  <i className="fa-solid fa-fire" style={{ fontSize: '12px' }}></i> Almost Complete
                 </a>
               </li>
               <li>
-                <a href="#newly-listed" style={{ color: 'rgba(255,255,255,0.7)', transition: 'color 0.15s' }} onMouseOver={e => e.currentTarget.style.color = '#60A5FA'} onMouseOut={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}>
-                  🆕 Newly Listed Products
+                <a href="#newly-listed" style={{ color: 'rgba(255,255,255,0.7)', transition: 'color 0.15s', display: 'inline-flex', alignItems: 'center', gap: '6px' }} onMouseOver={e => e.currentTarget.style.color = '#60A5FA'} onMouseOut={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}>
+                  <i className="fa-regular fa-clock" style={{ fontSize: '12px' }}></i> Newly Listed Products
                 </a>
               </li>
               <li>
-                <a href="#popular-products" style={{ color: 'rgba(255,255,255,0.7)', transition: 'color 0.15s' }} onMouseOver={e => e.currentTarget.style.color = '#60A5FA'} onMouseOut={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}>
-                  ⭐ Popular Purchases
+                <a href="#popular-products" style={{ color: 'rgba(255,255,255,0.7)', transition: 'color 0.15s', display: 'inline-flex', alignItems: 'center', gap: '6px' }} onMouseOver={e => e.currentTarget.style.color = '#60A5FA'} onMouseOut={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}>
+                  <i className="fa-solid fa-star" style={{ fontSize: '12px' }}></i> Popular Purchases
                 </a>
               </li>
             </ul>

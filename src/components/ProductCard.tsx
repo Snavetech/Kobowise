@@ -322,20 +322,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             animation: 'fadeIn 0.25s ease-out'
           }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>🚚</span>
+              <i className="fa-solid fa-truck" style={{ color: '#3B82F6', width: '16px', textAlign: 'center' }}></i>
               <span>Delivery: <strong>{product.estimated_delivery}</strong></span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>📍</span>
+              <i className="fa-solid fa-location-dot" style={{ color: '#EF4444', width: '16px', textAlign: 'center' }}></i>
               <span>Pickup: <strong>{product.pickup_location}</strong></span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>📦</span>
+              <i className="fa-solid fa-box" style={{ color: '#F59E0B', width: '16px', textAlign: 'center' }}></i>
               <span>Stock Left: <strong>{product.stock_quantity} units</strong></span>
             </div>
             {product.shares_per_person && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>⚖️</span>
+                <i className="fa-solid fa-scale-balanced" style={{ color: '#10B981', width: '16px', textAlign: 'center' }}></i>
                 <span>Portion Size: <strong>{product.shares_per_person}</strong></span>
               </div>
             )}
@@ -386,8 +386,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             <button 
               onClick={(e) => {
                 e.stopPropagation();
-                if (onQuickJoin) onQuickJoin(product);
-                else navigate(`/product/${product.id}`);
+                navigate(`/product/${product.id}`);
               }}
               className="btn-push"
               style={{
@@ -415,7 +414,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               }}
             >
               <ShoppingCart size={16} />
-              Join Group
+              View & Join Group
             </button>
           )}
         </div>

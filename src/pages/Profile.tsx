@@ -98,11 +98,36 @@ export const Profile: React.FC = () => {
 
   const getOrderStatusText = (status: Order['status']) => {
     switch (status) {
-      case 'ready_for_pickup': return 'Ready for Pickup 📦';
-      case 'delivered': return 'Delivered/Collected ✅';
-      case 'cancelled': return 'Cancelled ❌';
-      case 'processing': return 'Processing Order ⚙️';
-      default: return 'Paid (Group Pending) ⏳';
+      case 'ready_for_pickup': 
+        return (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            Ready for Pickup <i className="fa-solid fa-box" style={{ fontSize: '11px' }}></i>
+          </span>
+        );
+      case 'delivered': 
+        return (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            Delivered/Collected <i className="fa-solid fa-circle-check" style={{ fontSize: '11px' }}></i>
+          </span>
+        );
+      case 'cancelled': 
+        return (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            Cancelled <i className="fa-solid fa-circle-xmark" style={{ fontSize: '11px' }}></i>
+          </span>
+        );
+      case 'processing': 
+        return (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            Processing Order <i className="fa-solid fa-gear fa-spin" style={{ fontSize: '11px' }}></i>
+          </span>
+        );
+      default: 
+        return (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            Paid (Group Pending) <i className="fa-regular fa-clock" style={{ fontSize: '11px' }}></i>
+          </span>
+        );
     }
   };
 

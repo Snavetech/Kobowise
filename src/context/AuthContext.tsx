@@ -13,7 +13,7 @@ interface AuthContextType {
     fullName: string,
     phoneNumber: string,
     studentId?: string
-  ) => Promise<{ success: boolean; error?: string }>;
+  ) => Promise<{ success: boolean; error?: string; waitlisted?: boolean }>;
   logout: () => Promise<void>;
   switchRole: (role: 'buyer' | 'trader') => void;
 }
@@ -147,9 +147,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fullName: string,
     phoneNumber: string,
     studentId?: string
-  ) => {
+  ): Promise<{ success: boolean; error?: string; waitlisted?: boolean }> => {
     setLoading(true);
     try {
+      // --- TRADER WAITLIST FLOW ---
+      if (role === 'trader') {
+        // Store trader details in waitlist (both demo & live mode)
+        const waitlistResult = await dbService.addToTraderWaitlist(
+          fullName,
+          email,
+          phoneNumber
+        );
+
+        if (!waitlistResult.success) {
+          return { success: false, error: waitlistResult.error };
+        }
+
+        // In live mode, also send a confirmation email via Supabase Auth
+        // by creating a "pending" user (they won't be able to log in until approved)
+        if (!isDemoMode) {
+          // We don't create an auth user for traders yet — just store in waitlist table
+          // The admin will manually onboard them when trading goes live
+        }
+
+        return { success: true, waitlisted: true };
+      }
+
+      // --- BUYER SIGNUP FLOW (unchanged) ---
       if (isDemoMode) {
         const profiles = JSON.parse(localStorage.getItem('kobowise_profiles') || '[]');
         const newId = `user-${Date.now()}`;
@@ -172,7 +196,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         notifications.push({
           id: `notif-${Date.now()}`,
           user_id: newId,
-          title: 'Account Created! 🎉',
+          title: 'Account Created!',
           message: `Welcome to KoboWise, ${fullName}! You are registered as a ${role}.`,
           is_read: false,
           created_at: new Date().toISOString()

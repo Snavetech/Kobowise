@@ -70,13 +70,22 @@ export const ProductDetails: React.FC = () => {
     setLoading(false);
   }, [id, user]);
 
+  // Use a ref to track product ID for the realtime subscription (avoids infinite re-render loop)
+  const productIdRef = React.useRef<string | null>(null);
+  useEffect(() => {
+    if (product) {
+      productIdRef.current = product.id;
+    }
+  }, [product]);
+
   useEffect(() => {
     loadProductData();
 
     // Subscribe to mock real-time group order ticks
     const groupsSub = mockRealtime.subscribe('groups_updated', (updatedGroups: GroupOrder[]) => {
-      if (product) {
-        const currentGroup = updatedGroups.find(g => g.product_id === product.id && g.status === 'pending') || null;
+      const currentProductId = productIdRef.current;
+      if (currentProductId) {
+        const currentGroup = updatedGroups.find(g => g.product_id === currentProductId && g.status === 'pending') || null;
         setGroupOrder(currentGroup);
       }
     });
@@ -84,7 +93,7 @@ export const ProductDetails: React.FC = () => {
     return () => {
       groupsSub.unsubscribe();
     };
-  }, [loadProductData, product]);
+  }, [loadProductData]);
 
   const handleWishlistToggle = async () => {
     if (!user) {
@@ -241,11 +250,11 @@ export const ProductDetails: React.FC = () => {
               <div style={{ width: '80px', height: '80px', borderRadius: '12px', overflow: 'hidden', border: '2px solid #2563EB', cursor: 'pointer' }}>
                 <img src={product.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
-              <div style={{ width: '80px', height: '80px', borderRadius: '12px', overflow: 'hidden', border: '1px solid #DBEAFE', cursor: 'pointer', opacity: 0.7 }} onClick={() => addToast('Viewing alternate angle 1', 'info')}>
-                <img src="https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=150&auto=format&fit=crop&q=60" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <div style={{ width: '80px', height: '80px', borderRadius: '12px', overflow: 'hidden', border: '1px solid #DBEAFE', cursor: 'pointer', opacity: 0.7 }}>
+                <img src={product.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
-              <div style={{ width: '80px', height: '80px', borderRadius: '12px', overflow: 'hidden', border: '1px solid #DBEAFE', cursor: 'pointer', opacity: 0.7 }} onClick={() => addToast('Viewing alternate angle 2', 'info')}>
-                <img src="https://images.unsplash.com/photo-1586201375761-83865001e31c?w=150&auto=format&fit=crop&q=60" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <div style={{ width: '80px', height: '80px', borderRadius: '12px', overflow: 'hidden', border: '1px solid #DBEAFE', cursor: 'pointer', opacity: 0.7 }}>
+                <img src={product.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
             </div>
 
@@ -274,9 +283,9 @@ export const ProductDetails: React.FC = () => {
                     alignItems: 'center', 
                     justifyContent: 'center',
                     color: '#FFFFFF',
-                    fontSize: '20px'
+                    fontSize: '18px'
                   }}>
-                    📦
+                    <i className="fa-solid fa-box"></i>
                   </div>
                   <div>
                     <span style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#2563EB', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Portion Size per Share</span>
@@ -391,7 +400,7 @@ export const ProductDetails: React.FC = () => {
                   
                   {sharesLeft > 0 && (
                     <span style={{ fontSize: '12px', color: '#E05353', fontWeight: '700', marginLeft: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      ⏳ Closes in 2h 15m
+                      <i className="fa-regular fa-clock"></i> Closes in 2h 15m
                     </span>
                   )}
                 </div>

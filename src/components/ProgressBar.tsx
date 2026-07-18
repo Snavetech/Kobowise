@@ -26,11 +26,15 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({ purchased, needed }) =
         </span>
         {sharesLeft > 0 ? (
           <span className={isAlmostComplete ? 'shares-left-highlight' : ''}>
-            {isAlmostComplete ? '🔥 Only 1 share left!' : `${sharesLeft} left`}
+            {isAlmostComplete ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <i className="fa-solid fa-fire" style={{ color: 'var(--status-cancelled)' }}></i> Only 1 share left!
+              </span>
+            ) : `${sharesLeft} left`}
           </span>
         ) : (
-          <span style={{ color: 'var(--secondary-emerald)', fontWeight: '700' }}>
-            🎉 Group Full!
+          <span style={{ color: 'var(--secondary-emerald)', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            <i className="fa-solid fa-circle-check"></i> Group Full!
           </span>
         )}
       </div>

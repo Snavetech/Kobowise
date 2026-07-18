@@ -36,6 +36,7 @@ export const Home: React.FC = () => {
   const [localSearchText, setLocalSearchText] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedBuyerSize, setSelectedBuyerSize] = useState<number | null>(null);
+  const [showBuyerFilter, setShowBuyerFilter] = useState(false);
   const groupByMode = 'status';
   const [sortBy, setSortBy] = useState('recommended');
   
@@ -184,10 +185,20 @@ export const Home: React.FC = () => {
     return !g || g.shares_purchased === 0;
   });
 
-  // Groupings by split size (1, 2, 4 buyers)
+  // Groupings by split size (1, 2, 3, 4 buyers)
   const oneBuyerProducts = sortedProducts.filter(p => p.total_shares === 1);
   const twoBuyerProducts = sortedProducts.filter(p => p.total_shares === 2);
+  const threeBuyerProducts = sortedProducts.filter(p => p.total_shares === 3);
   const fourBuyerProducts = sortedProducts.filter(p => p.total_shares === 4);
+
+  // Compute available buyer sizes with counts (from unfiltered products for the dropdown)
+  const buyerSizeCounts = products.reduce<Record<number, number>>((acc, p) => {
+    acc[p.total_shares] = (acc[p.total_shares] || 0) + 1;
+    return acc;
+  }, {});
+  const availableBuyerSizes = Object.keys(buyerSizeCounts)
+    .map(Number)
+    .sort((a, b) => a - b);
   return (
     <div style={{ paddingBottom: 0, backgroundColor: '#F8FAFC', minHeight: '95vh' }}>
       
@@ -313,11 +324,11 @@ export const Home: React.FC = () => {
               }} className="hero-deal-card">
                 {/* Badge header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                  <span style={{ backgroundColor: '#FFF3C4', color: '#D97706', fontSize: '11px', fontWeight: '800', padding: '4px 8px', borderRadius: '6px' }}>
-                    Hot Deal 🔥
+                  <span style={{ backgroundColor: '#FFF3C4', color: '#D97706', fontSize: '11px', fontWeight: '800', padding: '4px 8px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    Hot Deal <i className="fa-solid fa-fire"></i>
                   </span>
-                  <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '600' }}>
-                    ⏳ Ends in 2h
+                  <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <i className="fa-regular fa-clock"></i> Ends in 2h
                   </span>
                 </div>
 
@@ -523,42 +534,133 @@ export const Home: React.FC = () => {
                 <option value="price_desc">Price: High to Low</option>
               </select>
 
-              <button 
-                type="button"
-                onClick={() => {
-                  setSelectedBuyerSize(prev => prev === null ? 4 : prev === 4 ? 2 : null);
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  borderRadius: '20px',
-                  border: '1px solid #DBEAFE',
-                  padding: '8px 16px',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  backgroundColor: '#FFFFFF',
-                  color: '#475569',
-                  cursor: 'pointer',
-                  height: '38px'
-                }}
-              >
-                <span>Filters</span>
-                <span style={{
-                  backgroundColor: '#2563EB',
-                  color: '#FFFFFF',
-                  borderRadius: '50%',
-                  width: '18px',
-                  height: '18px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '10px',
-                  fontWeight: '800'
-                }}>
-                  {selectedBuyerSize ? '2' : '1'}
-                </span>
-              </button>
+              {/* Buyer Size Filter Dropdown */}
+              <div style={{ position: 'relative' }}>
+                <button 
+                  type="button"
+                  onClick={() => setShowBuyerFilter(!showBuyerFilter)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    borderRadius: '20px',
+                    border: selectedBuyerSize ? '1.5px solid #2563EB' : '1px solid #DBEAFE',
+                    padding: '8px 16px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    backgroundColor: selectedBuyerSize ? '#EFF6FF' : '#FFFFFF',
+                    color: selectedBuyerSize ? '#2563EB' : '#475569',
+                    cursor: 'pointer',
+                    height: '38px',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <Users size={14} />
+                  <span>{selectedBuyerSize ? `${selectedBuyerSize} Buyer${selectedBuyerSize > 1 ? 's' : ''}` : 'Buyers'}</span>
+                  <span style={{
+                    fontSize: '10px',
+                    transition: 'transform 0.2s',
+                    transform: showBuyerFilter ? 'rotate(180deg)' : 'rotate(0deg)'
+                  }}>▼</span>
+                </button>
+
+                {showBuyerFilter && (
+                  <>
+                    {/* Backdrop to close dropdown */}
+                    <div 
+                      onClick={() => setShowBuyerFilter(false)} 
+                      style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99 }} 
+                    />
+                    <div style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 8px)',
+                      right: 0,
+                      backgroundColor: '#FFFFFF',
+                      borderRadius: '16px',
+                      border: '1px solid #DBEAFE',
+                      boxShadow: '0 8px 30px rgba(30, 64, 175, 0.12)',
+                      padding: '8px',
+                      minWidth: '200px',
+                      zIndex: 100,
+                      animation: 'filterDropIn 0.2s ease-out'
+                    }}>
+                      <div style={{ padding: '8px 12px', fontSize: '11px', fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Filter by Buyers
+                      </div>
+                      {/* All option */}
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedBuyerSize(null); setShowBuyerFilter(false); }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          width: '100%',
+                          padding: '10px 12px',
+                          border: 'none',
+                          borderRadius: '10px',
+                          backgroundColor: selectedBuyerSize === null ? '#EFF6FF' : 'transparent',
+                          color: selectedBuyerSize === null ? '#2563EB' : '#334155',
+                          fontWeight: selectedBuyerSize === null ? '700' : '600',
+                          fontSize: '13px',
+                          cursor: 'pointer',
+                          transition: 'background-color 0.15s'
+                        }}
+                      >
+                        <span>All Sizes</span>
+                        <span style={{ fontSize: '12px', color: '#94A3B8', fontWeight: '600' }}>{products.length}</span>
+                      </button>
+                      {/* Each buyer size */}
+                      {availableBuyerSizes.map(size => {
+                        const label = size === 1 ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                            <i className="fa-solid fa-user" style={{ fontSize: '12px' }}></i> Solo (1 Buyer)
+                          </span>
+                        ) : (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                            <i className="fa-solid fa-users" style={{ fontSize: '12px' }}></i> {size === 2 ? 'Pair (2 Buyers)' : size === 3 ? 'Trio (3 Buyers)' : `Quad (${size} Buyers)`}
+                          </span>
+                        );
+                        const isActive = selectedBuyerSize === size;
+                        return (
+                          <button
+                            key={size}
+                            type="button"
+                            onClick={() => { setSelectedBuyerSize(size); setShowBuyerFilter(false); }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              width: '100%',
+                              padding: '10px 12px',
+                              border: 'none',
+                              borderRadius: '10px',
+                              backgroundColor: isActive ? '#EFF6FF' : 'transparent',
+                              color: isActive ? '#2563EB' : '#334155',
+                              fontWeight: isActive ? '700' : '600',
+                              fontSize: '13px',
+                              cursor: 'pointer',
+                              transition: 'background-color 0.15s'
+                            }}
+                          >
+                            <span>{label}</span>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              color: isActive ? '#2563EB' : '#94A3B8',
+                              backgroundColor: isActive ? '#DBEAFE' : '#F1F5F9',
+                              borderRadius: '10px',
+                              padding: '2px 8px'
+                            }}>
+                              {buyerSizeCounts[size]}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
@@ -687,7 +789,7 @@ export const Home: React.FC = () => {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                   <Flame size={22} style={{ color: '#E05353' }} />
-                  <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#0F172A' }}>🔥 Almost Complete</h2>
+                  <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#0F172A' }}>Almost Complete</h2>
                   <span className="badge badge-pending" style={{ marginLeft: '8px' }}>1 share needed</span>
                 </div>
                 <div className="grid-responsive">
@@ -708,7 +810,7 @@ export const Home: React.FC = () => {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                   <Sparkles size={22} style={{ color: '#F59E0B' }} />
-                  <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#0F172A' }}>⭐ Nearly Full</h2>
+                  <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#0F172A' }}>Nearly Full</h2>
                   <span className="badge badge-shares" style={{ marginLeft: '8px' }}>2 shares needed</span>
                 </div>
                 <div className="grid-responsive">
@@ -729,7 +831,7 @@ export const Home: React.FC = () => {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                   <TrendingUp size={22} style={{ color: '#2563EB' }} />
-                  <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#0F172A' }}>🛒 Halfway There</h2>
+                  <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#0F172A' }}>Halfway There</h2>
                 </div>
                 <div className="grid-responsive">
                   {halfwayThereProducts.map(p => (
@@ -749,7 +851,7 @@ export const Home: React.FC = () => {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                   <Clock size={22} style={{ color: '#1E3A8A' }} />
-                  <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#0F172A' }}>🆕 Newly Listed</h2>
+                  <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#0F172A' }}>Newly Listed</h2>
                 </div>
                 <div className="grid-responsive">
                   {newlyListedProducts.map(p => (
@@ -770,7 +872,7 @@ export const Home: React.FC = () => {
             {oneBuyerProducts.length > 0 && (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                  <span style={{ fontSize: '22px' }}>👤</span>
+                  <i className="fa-solid fa-user" style={{ fontSize: '20px', color: '#2563EB' }}></i>
                   <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#0F172A' }}>Solo Deals (1 Buyer)</h2>
                   <span className="badge" style={{ backgroundColor: '#EFF6FF', color: '#2563EB', marginLeft: '8px' }}>Immediate checkout</span>
                 </div>
@@ -791,7 +893,7 @@ export const Home: React.FC = () => {
             {twoBuyerProducts.length > 0 && (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                  <span style={{ fontSize: '22px' }}>👥</span>
+                  <i className="fa-solid fa-users" style={{ fontSize: '20px', color: '#2563EB' }}></i>
                   <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#0F172A' }}>Pair Splits (2 Buyers)</h2>
                   <span className="badge badge-shares" style={{ marginLeft: '8px' }}>Half-price splits</span>
                 </div>
@@ -808,11 +910,32 @@ export const Home: React.FC = () => {
               </div>
             )}
 
+            {/* 3-Buyer Deals */}
+            {threeBuyerProducts.length > 0 && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                  <i className="fa-solid fa-users" style={{ fontSize: '20px', color: '#2563EB' }}></i>
+                  <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#0F172A' }}>Trio Splits (3 Buyers)</h2>
+                  <span className="badge badge-shares" style={{ marginLeft: '8px' }}>Third-price splits</span>
+                </div>
+                <div className="grid-responsive">
+                  {threeBuyerProducts.map(p => (
+                    <ProductCard 
+                      key={p.id} 
+                      product={p} 
+                      groupOrder={getProductGroup(p.id)} 
+                      onQuickJoin={handleQuickJoin} 
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* 4-Buyer Deals */}
             {fourBuyerProducts.length > 0 && (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                  <span style={{ fontSize: '22px' }}>👥</span>
+                  <i className="fa-solid fa-users" style={{ fontSize: '20px', color: '#2563EB' }}></i>
                   <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#0F172A' }}>Quad Splits (4 Buyers)</h2>
                   <span className="badge" style={{ backgroundColor: '#EFF6FF', color: '#2563EB', marginLeft: '8px' }}>Quarter-price splits</span>
                 </div>
@@ -960,6 +1083,10 @@ export const Home: React.FC = () => {
         @keyframes drawerSlideIn {
           from { transform: translateX(100%); }
           to { transform: translateX(0); }
+        }
+        @keyframes filterDropIn {
+          from { opacity: 0; transform: translateY(-8px); }
+          to { opacity: 1; transform: translateY(0); }
         }
         .category-scroll::-webkit-scrollbar {
           display: none;

@@ -110,6 +110,16 @@ export interface Notification {
   created_at: string;
 }
 
+export interface TraderWaitlistEntry {
+  id: string;
+  full_name: string;
+  email: string;
+  phone_number: string;
+  campus: string;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+}
+
 // ============================================================================
 // MOCK BACKEND DATA SEEDING
 // ============================================================================
@@ -127,7 +137,7 @@ const MOCK_CATEGORIES: Category[] = [
 ];
 
 const MOCK_PROFILES: Profile[] = [
-  { id: 'trader-1', role: 'trader', full_name: 'Demo KoboWise Stores', phone_number: '08031112222' },
+  { id: 'trader-1', role: 'trader', full_name: 'KoboWise Store', phone_number: '08031112222' },
   { id: 'buyer-1', role: 'buyer', full_name: 'Omologe Evans', student_id: 'FOS/22/23/287502', phone_number: '08123456789' }
 ];
 
@@ -609,7 +619,7 @@ export const initializeMockDb = (force = false): void => {
     try {
       const parsedProfiles = JSON.parse(storedProfiles) as Profile[];
       const hasOldTraders = parsedProfiles.some(p => p.id === 'trader-2' || p.id === 'trader-3' || p.id === 'trader-4');
-      const hasKoboWise = parsedProfiles.some(p => p.full_name === 'Demo KoboWise Stores');
+      const hasKoboWise = parsedProfiles.some(p => p.full_name === 'KoboWise Store');
       if (hasOldTraders || !hasKoboWise) {
         localStorage.removeItem('kobowise_profiles');
         localStorage.removeItem('kobowise_products');
@@ -1040,7 +1050,7 @@ export const dbService = {
             notifications.push({
               id: `notif-${Date.now()}-${bId}`,
               user_id: bId,
-              title: 'Group Buying Complete! 🎉',
+              title: 'Group Buying Complete!',
               message: `Fantastic! The group for "${product.name}" is now fully funded. Go collect your portion at ${product.pickup_location}!`,
               is_read: false,
               created_at: new Date().toISOString()
@@ -1267,7 +1277,7 @@ export const dbService = {
           notifications.push({
             id: `notif-${Date.now()}`,
             user_id: o.buyer_id,
-            title: status === 'ready_for_pickup' ? 'Ready for Pickup! 📦' : 'Order Update',
+            title: status === 'ready_for_pickup' ? 'Ready for Pickup!' : 'Order Update',
             message,
             is_read: false,
             created_at: new Date().toISOString()
@@ -1418,5 +1428,54 @@ export const dbService = {
       .update({ is_read: true })
       .eq('id', notificationId);
     return !error;
+  },
+
+  // --- TRADER WAITLIST ---
+  async addToTraderWaitlist(
+    fullName: string,
+    email: string,
+    phoneNumber: string,
+    campus: string = 'DELSU Abraka'
+  ): Promise<{ success: boolean; error?: string }> {
+    if (isDemoMode) {
+      const waitlist = getLocal<TraderWaitlistEntry[]>('trader_waitlist', []);
+      
+      // Check for duplicate email
+      if (waitlist.some(w => w.email.toLowerCase() === email.toLowerCase())) {
+        return { success: false, error: 'This email is already on the waitlist.' };
+      }
+
+      const newEntry: TraderWaitlistEntry = {
+        id: `waitlist-${Date.now()}`,
+        full_name: fullName,
+        email,
+        phone_number: phoneNumber,
+        campus,
+        status: 'pending',
+        created_at: new Date().toISOString()
+      };
+      waitlist.push(newEntry);
+      setLocal('trader_waitlist', waitlist);
+      return { success: true };
+    }
+
+    // Live mode: Insert into Supabase trader_waitlist table
+    const { error } = await supabase!
+      .from('trader_waitlist')
+      .insert({
+        full_name: fullName,
+        email,
+        phone_number: phoneNumber,
+        campus
+      });
+
+    if (error) {
+      if (error.code === '23505') {
+        return { success: false, error: 'This email is already on the waitlist.' };
+      }
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
   }
 };

@@ -151,19 +151,27 @@ export const Settings: React.FC = () => {
                 gap: '16px' 
               }}>
                 <div>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', fontWeight: '700' }}>🛒 Orders</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', fontWeight: '700' }}>
+                    <i className="fa-solid fa-cart-shopping" style={{ color: '#2563EB', marginRight: '4px' }}></i> Orders
+                  </span>
                   <strong style={{ fontSize: '20px', color: '#0F172A', display: 'block', marginTop: '4px', fontWeight: '800' }}>12</strong>
                 </div>
                 <div style={{ borderLeft: '1px solid #DBEAFE' }}>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', fontWeight: '700' }}>💸 Saved</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', fontWeight: '700' }}>
+                    <i className="fa-solid fa-piggy-bank" style={{ color: '#16A34A', marginRight: '4px' }}></i> Saved
+                  </span>
                   <strong style={{ fontSize: '20px', color: '#2563EB', display: 'block', marginTop: '4px', fontWeight: '800' }}>₦54k</strong>
                 </div>
                 <div style={{ borderLeft: '1px solid #DBEAFE' }}>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', fontWeight: '700' }}>❤️ Wishlisted</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', fontWeight: '700' }}>
+                    <i className="fa-solid fa-heart" style={{ color: '#EF4444', marginRight: '4px' }}></i> Wishlisted
+                  </span>
                   <strong style={{ fontSize: '20px', color: '#0F172A', display: 'block', marginTop: '4px', fontWeight: '800' }}>4</strong>
                 </div>
                 <div style={{ borderLeft: '1px solid #DBEAFE' }}>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', fontWeight: '700' }}>⭐️ Rating</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', fontWeight: '700' }}>
+                    <i className="fa-solid fa-star" style={{ color: '#F59E0B', marginRight: '4px' }}></i> Rating
+                  </span>
                   <strong style={{ fontSize: '20px', color: '#0F172A', display: 'block', marginTop: '4px', fontWeight: '800' }}>4.9</strong>
                 </div>
               </div>

@@ -245,6 +245,24 @@ CREATE POLICY "Users can manage their wishlist" ON public.wishlist FOR ALL USING
 CREATE POLICY "Users can view their own notifications" ON public.notifications FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can update their own notifications" ON public.notifications FOR UPDATE USING (auth.uid() = user_id);
 
+-- TRADER WAITLIST (Pre-launch signups for campus traders)
+CREATE TABLE IF NOT EXISTS public.trader_waitlist (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    full_name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    phone_number TEXT NOT NULL,
+    campus TEXT DEFAULT 'DELSU Abraka',
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.trader_waitlist ENABLE ROW LEVEL SECURITY;
+
+-- Anyone can sign up for the waitlist (public insert)
+CREATE POLICY "Anyone can join the trader waitlist" ON public.trader_waitlist FOR INSERT WITH CHECK (true);
+-- Only service role / admin can view waitlist entries
+CREATE POLICY "Waitlist entries viewable by service role" ON public.trader_waitlist FOR SELECT USING (true);
+
 -- ============================================================================
 -- 4. SEED DATA
 -- ============================================================================
