@@ -13,7 +13,6 @@ import {
   ClipboardList, 
   ShoppingBag, 
   X, 
-  Image,
   Upload,
   FolderOpen,
   AlertTriangle,

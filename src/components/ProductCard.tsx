@@ -14,7 +14,6 @@ interface ProductCardProps {
 export const ProductCard: React.FC<ProductCardProps> = ({ 
   product, 
   groupOrder,
-  onQuickJoin 
 }) => {
   const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
