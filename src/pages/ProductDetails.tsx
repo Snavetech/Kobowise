@@ -158,8 +158,8 @@ export const ProductDetails: React.FC = () => {
   const sharesPurchased = groupOrder ? groupOrder.shares_purchased : 0;
   const sharesLeft = product.total_shares - sharesPurchased;
   
-  // Cap selectable shares to what's left
-  const maxAvailableShares = Math.max(1, sharesLeft);
+  // Cap selectable shares to total shares for this bulk product
+  const maxAvailableShares = Math.max(1, product.total_shares);
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('en-NG', {
@@ -413,21 +413,47 @@ export const ProductDetails: React.FC = () => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #DBEAFE', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#F8FAFC' }}>
                       <button 
+                        type="button"
                         onClick={() => setSharesCount(prev => Math.max(1, prev - 1))}
                         disabled={sharesCount <= 1}
-                        style={{ border: 'none', background: 'none', padding: '10px 16px', cursor: 'pointer', color: '#475569' }}
+                        style={{ 
+                          border: 'none', 
+                          background: 'none', 
+                          padding: '10px 16px', 
+                          cursor: sharesCount <= 1 ? 'not-allowed' : 'pointer', 
+                          color: '#475569',
+                          opacity: sharesCount <= 1 ? 0.35 : 1,
+                          transition: 'opacity 0.2s ease',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                        aria-label="Decrease shares"
                       >
-                        <Minus size={14} />
+                        <Minus size={14} style={{ pointerEvents: 'none' }} />
                       </button>
-                      <span style={{ minWidth: '32px', textAlign: 'center', fontWeight: '800', fontSize: '15px' }}>
+                      <span style={{ minWidth: '36px', textAlign: 'center', fontWeight: '800', fontSize: '15px', color: '#0F172A', userSelect: 'none' }}>
                         {sharesCount}
                       </span>
                       <button 
+                        type="button"
                         onClick={() => setSharesCount(prev => Math.min(maxAvailableShares, prev + 1))}
                         disabled={sharesCount >= maxAvailableShares}
-                        style={{ border: 'none', background: 'none', padding: '10px 16px', cursor: 'pointer', color: '#475569' }}
+                        style={{ 
+                          border: 'none', 
+                          background: 'none', 
+                          padding: '10px 16px', 
+                          cursor: sharesCount >= maxAvailableShares ? 'not-allowed' : 'pointer', 
+                          color: '#475569',
+                          opacity: sharesCount >= maxAvailableShares ? 0.35 : 1,
+                          transition: 'opacity 0.2s ease',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                        aria-label="Increase shares"
                       >
-                        <Plus size={14} />
+                        <Plus size={14} style={{ pointerEvents: 'none' }} />
                       </button>
                     </div>
                     
