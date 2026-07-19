@@ -2,12 +2,11 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { Trash2, Plus, Minus, ArrowLeft, ArrowRight, MapPin, Truck } from 'lucide-react';
+import { Trash2, ArrowLeft, ArrowRight, MapPin, Truck } from 'lucide-react';
 
 export const Cart: React.FC = () => {
   const { 
     cartItems, 
-    updateShares, 
     removeFromCart, 
     cartSubtotal, 
     deliveryType, 
@@ -128,23 +127,16 @@ export const Cart: React.FC = () => {
                   paddingTop: '14px',
                   marginTop: '4px' 
                 }} className="cart-item-controls">
-                  <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-                    <button 
-                      onClick={() => updateShares(item.product.id, item.sharesBought - 1)}
-                      style={{ border: 'none', background: 'none', padding: '8px 12px', cursor: 'pointer' }}
-                    >
-                      <Minus size={14} />
-                    </button>
-                    <span style={{ minWidth: '32px', textAlign: 'center', fontWeight: '700', fontSize: '14px' }}>
-                      {item.sharesBought}
-                    </span>
-                    <button 
-                      onClick={() => updateShares(item.product.id, item.sharesBought + 1)}
-                      style={{ border: 'none', background: 'none', padding: '8px 12px', cursor: 'pointer' }}
-                    >
-                      <Plus size={14} />
-                    </button>
-                  </div>
+                  <span style={{ 
+                    fontSize: '13px', 
+                    fontWeight: '600', 
+                    color: 'var(--primary-navy)', 
+                    backgroundColor: 'rgba(11, 37, 69, 0.06)', 
+                    padding: '6px 14px', 
+                    borderRadius: 'var(--radius-md)' 
+                  }}>
+                    {item.sharesBought} {item.sharesBought === 1 ? 'share' : 'shares'}
+                  </span>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                     <span style={{ fontSize: '16px', fontWeight: '700', color: 'var(--primary-navy)' }}>
