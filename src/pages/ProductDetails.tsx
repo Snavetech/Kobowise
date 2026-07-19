@@ -24,9 +24,11 @@ export const ProductDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { addToCart } = useCart();
+  const { cartItems, addToCart } = useCart();
 
   const [product, setProduct] = useState<Product | null>(null);
+  const existingCartItem = product ? cartItems.find(c => c.product.id === product.id) : undefined;
+  const isAlreadyInCart = !!existingCartItem;
   const [groupOrder, setGroupOrder] = useState<GroupOrder | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isWished, setIsWished] = useState(false);
@@ -34,6 +36,15 @@ export const ProductDetails: React.FC = () => {
 
   // Selector states
   const [sharesCount, setSharesCount] = useState(1);
+
+  useEffect(() => {
+    if (product) {
+      const inCart = cartItems.find(c => c.product.id === product.id);
+      if (inCart) {
+        setSharesCount(inCart.sharesBought);
+      }
+    }
+  }, [product, cartItems]);
   const [newRating, setNewRating] = useState(5);
   const [newComment, setNewComment] = useState('');
   const [reviewSubmitLoading, setReviewSubmitLoading] = useState(false);
@@ -482,7 +493,7 @@ export const ProductDetails: React.FC = () => {
                   }}
                 >
                   <ShoppingCart size={18} />
-                  Join Group — Pay {formatCurrency(sharesCount * product.price_per_share)}
+                  {isAlreadyInCart ? `Update Shares in Cart — Pay ${formatCurrency(sharesCount * product.price_per_share)}` : `Join Group — Pay ${formatCurrency(sharesCount * product.price_per_share)}`}
                 </button>
               ) : (
                 <button disabled className="btn btn-outline btn-full btn-lg" style={{ borderRadius: '14px', height: '48px' }}>

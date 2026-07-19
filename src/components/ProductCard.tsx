@@ -19,7 +19,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
   const { user } = useAuth();
-  const { addToCart } = useCart();
+  const { cartItems, addToCart } = useCart();
+  const existingCartItem = cartItems.find(item => item.product.id === product.id);
+  const isAlreadyInCart = !!existingCartItem;
   const [isWished, setIsWished] = useState(false);
 
   useEffect(() => {
@@ -382,6 +384,41 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             >
               <Check size={16} />
               Deal Completed
+            </button>
+          ) : isAlreadyInCart ? (
+            <button 
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate('/cart');
+              }}
+              className="btn-push"
+              style={{
+                width: '100%',
+                background: 'linear-gradient(135deg, #059669, #10B981)',
+                border: 'none',
+                color: '#FFFFFF',
+                padding: '11px',
+                borderRadius: '12px',
+                fontSize: '13px',
+                fontWeight: '700',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+                transition: 'all 0.25s ease',
+                boxShadow: '0 2px 8px rgba(16, 185, 129, 0.2)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.boxShadow = '0 6px 16px rgba(16, 185, 129, 0.3)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(16, 185, 129, 0.2)';
+              }}
+            >
+              <Check size={16} />
+              Joined ({existingCartItem.sharesBought} {existingCartItem.sharesBought === 1 ? 'share' : 'shares'}) — View Cart
             </button>
           ) : (
             <button 

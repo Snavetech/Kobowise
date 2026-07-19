@@ -47,9 +47,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let updatedCart = [...cartItems];
 
     if (existingIndex > -1) {
-      // Check limits
-      const currentShares = updatedCart[existingIndex].sharesBought;
-      const newShares = Math.min(currentShares + shares, product.total_shares);
+      // Update shares quantity to explicitly chosen shares
+      const newShares = Math.min(shares, product.total_shares);
       updatedCart[existingIndex] = {
         ...updatedCart[existingIndex],
         sharesBought: newShares
