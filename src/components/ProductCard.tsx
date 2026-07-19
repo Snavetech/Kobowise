@@ -18,7 +18,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onQuickJoin
 }) => {
   const navigate = useNavigate();
-  const [isExpanded, setIsExpanded] = useState(false);
   const { user } = useAuth();
   const { cartItems, addToCart } = useCart();
   const existingCartItem = cartItems.find(item => item.product.id === product.id);
@@ -71,7 +70,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   return (
     <div 
       className="product-card hover-lift" 
-      onClick={() => setIsExpanded(!isExpanded)}
+      onClick={() => {
+        if (onQuickJoin) onQuickJoin(product);
+        else navigate(`/product/${product.id}`);
+      }}
       style={{
         backgroundColor: '#FFFFFF',
         borderRadius: '20px',
@@ -211,25 +213,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         <p style={{
           fontSize: '12px',
           color: '#64748B',
-          margin: '0 0 4px 0',
-          height: isExpanded ? 'auto' : '34px',
+          margin: '0 0 12px 0',
+          height: '34px',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
-          display: isExpanded ? 'block' : '-webkit-box',
-          WebkitLineClamp: isExpanded ? 'none' : 2,
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
           WebkitBoxOrient: 'vertical',
-          lineHeight: '1.4',
-          transition: 'all 0.3s ease'
+          lineHeight: '1.4'
         }}>
           {product.description}
         </p>
-
-        {/* Click to Expand indicator */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 0 12px 0' }}>
-          <span style={{ fontSize: '11px', color: '#2563EB', fontWeight: '700' }}>
-            {isExpanded ? '▲ Click to collapse' : '▼ Click card to expand'}
-          </span>
-        </div>
 
         {/* Trader Name with Verification */}
         {product.trader_name && (
@@ -309,57 +303,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             </span>
           </div>
         </div>
-
-        {/* Expanded Panel details (Image 5) */}
-        {isExpanded && (
-          <div style={{ 
-            fontSize: '13px', 
-            color: '#475569', 
-            backgroundColor: '#F8FAFC', 
-            borderRadius: '12px', 
-            padding: '14px', 
-            margin: '0 0 16px 0',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-            border: '1px solid #DBEAFE',
-            animation: 'fadeIn 0.25s ease-out'
-          }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <i className="fa-solid fa-truck" style={{ color: '#3B82F6', width: '16px', textAlign: 'center' }}></i>
-              <span>Delivery: <strong>{product.estimated_delivery}</strong></span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <i className="fa-solid fa-location-dot" style={{ color: '#EF4444', width: '16px', textAlign: 'center' }}></i>
-              <span>Pickup: <strong>{product.pickup_location}</strong></span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <i className="fa-solid fa-box" style={{ color: '#F59E0B', width: '16px', textAlign: 'center' }}></i>
-              <span>Stock Left: <strong>{product.stock_quantity} units</strong></span>
-            </div>
-            {product.shares_per_person && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <i className="fa-solid fa-scale-balanced" style={{ color: '#10B981', width: '16px', textAlign: 'center' }}></i>
-                <span>Portion Size: <strong>{product.shares_per_person}</strong></span>
-              </div>
-            )}
-            <Link 
-              to={`/product/${product.id}`} 
-              style={{ 
-                color: '#2563EB', 
-                fontWeight: '800', 
-                marginTop: '4px', 
-                textDecoration: 'none',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-                fontSize: '12px'
-              }}
-            >
-              Go to Full Product Page &rarr;
-            </Link>
-          </div>
-        )}
 
         {/* Action Button */}
         <div style={{ marginTop: 'auto' }}>
