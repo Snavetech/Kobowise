@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useCart } from '../context/CartContext';
 import { dbService, mockRealtime } from '../supabase';
 import type { Product, Category, GroupOrder } from '../supabase';
 import { ProductCard } from '../components/ProductCard';
+import { ProductQuickViewModal } from '../components/ProductQuickViewModal';
 import { ToastContainer, type ToastMessage } from '../components/Toast';
 import { useSearchParams } from 'react-router-dom';
 import { SkeletonLoader } from '../components/SkeletonLoader';
@@ -23,7 +23,6 @@ import {
 
 export const Home: React.FC = () => {
   const { user } = useAuth();
-  const { addToCart } = useCart();
   const [searchParams] = useSearchParams();
   const isBrowseTab = searchParams.get('tab') === 'browse';
   
@@ -31,6 +30,7 @@ export const Home: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [groupOrders, setGroupOrders] = useState<GroupOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [localSearchText, setLocalSearchText] = useState('');
@@ -111,8 +111,7 @@ export const Home: React.FC = () => {
   };
 
   const handleQuickJoin = (product: Product) => {
-    addToCart(product, 1);
-    addToast(`Added 1 share of "${product.name}" to your cart!`, 'success');
+    setQuickViewProduct(product);
   };
 
   const markNotificationRead = async (id: string) => {
@@ -1121,6 +1120,13 @@ export const Home: React.FC = () => {
           }
         }
       `}</style>
+      {/* AliExpress-Style Quick View Modal */}
+      <ProductQuickViewModal 
+        product={quickViewProduct}
+        groupOrder={quickViewProduct ? getProductGroup(quickViewProduct.id) : undefined}
+        onClose={() => setQuickViewProduct(null)}
+        addToast={addToast}
+      />
     </div>
   );
 };

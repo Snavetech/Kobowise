@@ -15,6 +15,7 @@ interface ProductCardProps {
 export const ProductCard: React.FC<ProductCardProps> = ({ 
   product, 
   groupOrder,
+  onQuickJoin
 }) => {
   const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -425,8 +426,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                addToCart(product, 1);
-                navigate('/cart');
+                if (onQuickJoin) {
+                  onQuickJoin(product);
+                } else {
+                  addToCart(product, 1);
+                  navigate('/cart');
+                }
               }}
               className="btn-push"
               style={{
