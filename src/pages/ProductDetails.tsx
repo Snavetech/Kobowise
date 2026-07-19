@@ -17,7 +17,10 @@ import {
   ShoppingCart,
   Share2,
   Check,
-  User
+  User,
+  MapPin,
+  Package,
+  Sparkles
 } from 'lucide-react';
 
 export const ProductDetails: React.FC = () => {
@@ -185,6 +188,58 @@ export const ProductDetails: React.FC = () => {
       <div className="container">
         <ToastContainer toasts={toasts} onDismiss={dismissToast} />
         
+        {/* TOP BUNDLE DEALS BANNER */}
+        <div style={{
+          background: 'linear-gradient(90deg, #FEF08A 0%, #FDE047 100%)',
+          padding: '18px 28px',
+          borderRadius: '20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px',
+          marginBottom: '24px',
+          boxShadow: '0 4px 14px rgba(234, 179, 8, 0.15)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ 
+              backgroundColor: '#EAB308', 
+              color: '#FFFFFF', 
+              padding: '6px 14px', 
+              borderRadius: '10px', 
+              fontWeight: '800', 
+              fontSize: '14px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+              <Sparkles size={16} /> Bundle Deals
+            </span>
+            <span style={{ fontSize: '14px', fontWeight: '800', color: '#854D0E' }}>
+              Co-op Group Split Price
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <span style={{ fontSize: '28px', fontWeight: '900', color: '#0F172A' }}>
+              {formatCurrency(product.price_per_share)}
+            </span>
+            <span style={{ fontSize: '15px', color: '#854D0E', textDecoration: 'line-through', fontWeight: '600' }}>
+              {formatCurrency(product.total_price)}
+            </span>
+            <span style={{ 
+              backgroundColor: '#EF4444', 
+              color: '#FFFFFF', 
+              padding: '3px 10px', 
+              borderRadius: '8px', 
+              fontSize: '12px', 
+              fontWeight: '800' 
+            }}>
+              Save 75%
+            </span>
+          </div>
+        </div>
+
         {/* Category Breadcrumbs (Screenshot 5) */}
         <div style={{ fontSize: '13px', color: '#94A3B8', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '500' }}>
           <Link to="/home" style={{ textDecoration: 'none', color: '#94A3B8' }}>Home</Link>
@@ -333,13 +388,87 @@ export const ProductDetails: React.FC = () => {
                 {product.name}
               </h1>
               
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '20px' }}>
                 <div style={{ display: 'flex', gap: '2px' }}>
                   {[1, 2, 3, 4].map(s => <Star key={s} size={14} fill="#F59E0B" stroke="#F59E0B" />)}
                   <Star size={14} fill="none" stroke="#94A3B8" />
                 </div>
                 <span style={{ fontSize: '13px', fontWeight: '700', color: '#0F172A' }}>4.8</span>
                 <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>(24 reviews)</span>
+              </div>
+
+              {/* Sold By Box */}
+              <div style={{ backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '16px', padding: '14px 18px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '13px', color: '#64748B', fontWeight: '600' }}>Sold By:</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <strong style={{ fontSize: '14px', color: '#0F172A' }}>{product.trader_name || 'KoboWise Store'}</strong>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="12" r="12" fill="#2563EB"/>
+                    <path d="M9.5 12.5L11 14L15 10" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+              </div>
+
+              {/* Specifications Box */}
+              <div style={{ 
+                backgroundColor: '#EFF6FF', 
+                border: '1px solid #BFDBFE', 
+                borderRadius: '16px', 
+                padding: '18px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+                marginBottom: '24px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                  <span style={{ backgroundColor: '#2563EB', color: '#FFFFFF', padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '800' }}>
+                    KoboWise Commitment
+                  </span>
+                  <span style={{ fontSize: '11px', color: sharesLeft === 1 ? '#D97706' : '#2563EB', fontWeight: '800', backgroundColor: '#FFFFFF', padding: '2px 8px', borderRadius: '6px' }}>
+                    {sharesLeft === 1 ? '1 spot left! 🚨' : `${sharesLeft} spots left`}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px', color: '#1E293B' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Truck size={18} style={{ color: '#2563EB', flexShrink: 0 }} />
+                    <div>
+                      <span style={{ color: '#64748B', fontWeight: '600' }}>Delivery: </span>
+                      <strong style={{ color: '#0F172A' }}>{product.estimated_delivery || 'Same Day Delivery'}</strong>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <MapPin size={18} style={{ color: '#EF4444', flexShrink: 0 }} />
+                    <div>
+                      <span style={{ color: '#64748B', fontWeight: '600' }}>Pickup: </span>
+                      <strong style={{ color: '#0F172A' }}>{product.pickup_location || 'DELSU Site II Gate Shop 1B'}</strong>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Package size={18} style={{ color: '#D97706', flexShrink: 0 }} />
+                    <div>
+                      <span style={{ color: '#64748B', fontWeight: '600' }}>Stock Left: </span>
+                      <strong style={{ color: '#0F172A' }}>{product.stock_quantity ? `${product.stock_quantity} units` : '30 units'}</strong>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <User size={18} style={{ color: '#10B981', flexShrink: 0 }} />
+                    <div>
+                      <span style={{ color: '#64748B', fontWeight: '600' }}>Portion Size: </span>
+                      <strong style={{ color: '#0F172A' }}>{product.shares_per_person || '4 Basket'}</strong>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', borderTop: '1px dashed #BFDBFE', paddingTop: '10px', marginTop: '4px' }}>
+                    <ShieldCheck size={18} style={{ color: '#2563EB', flexShrink: 0 }} />
+                    <span style={{ fontSize: '11px', color: '#475569' }}>
+                      <strong>Security & Privacy:</strong> Money secure in escrow until pickup code verified.
+                    </span>
+                  </div>
+                </div>
               </div>
 
               <div className="product-price-box" style={{ 

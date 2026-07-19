@@ -3,9 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { dbService, mockRealtime } from '../supabase';
 import type { Product, Category, GroupOrder } from '../supabase';
 import { ProductCard } from '../components/ProductCard';
-import { ProductQuickViewModal } from '../components/ProductQuickViewModal';
 import { ToastContainer, type ToastMessage } from '../components/Toast';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { SkeletonLoader } from '../components/SkeletonLoader';
 import { 
   Search, 
@@ -23,6 +22,7 @@ import {
 
 export const Home: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isBrowseTab = searchParams.get('tab') === 'browse';
   
@@ -30,7 +30,6 @@ export const Home: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [groupOrders, setGroupOrders] = useState<GroupOrder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [localSearchText, setLocalSearchText] = useState('');
@@ -108,10 +107,6 @@ export const Home: React.FC = () => {
 
   const dismissToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
-
-  const handleQuickJoin = (product: Product) => {
-    setQuickViewProduct(product);
   };
 
   const markNotificationRead = async (id: string) => {
@@ -358,7 +353,7 @@ export const Home: React.FC = () => {
                 <button 
                   onClick={() => {
                     const indomie = products.find(p => p.name.toLowerCase().includes('indomie'));
-                    if (indomie) handleQuickJoin(indomie);
+                    if (indomie) navigate(`/product/${indomie.id}`);
                     else addToast("Indomie deal is loading...", "info");
                   }}
                   className="btn btn-full"
@@ -797,7 +792,6 @@ export const Home: React.FC = () => {
                       key={p.id} 
                       product={p} 
                       groupOrder={getProductGroup(p.id)} 
-                      onQuickJoin={handleQuickJoin} 
                     />
                   ))}
                 </div>
@@ -818,7 +812,6 @@ export const Home: React.FC = () => {
                       key={p.id} 
                       product={p} 
                       groupOrder={getProductGroup(p.id)} 
-                      onQuickJoin={handleQuickJoin} 
                     />
                   ))}
                 </div>
@@ -838,7 +831,6 @@ export const Home: React.FC = () => {
                       key={p.id} 
                       product={p} 
                       groupOrder={getProductGroup(p.id)} 
-                      onQuickJoin={handleQuickJoin} 
                     />
                   ))}
                 </div>
@@ -858,7 +850,6 @@ export const Home: React.FC = () => {
                       key={p.id} 
                       product={p} 
                       groupOrder={getProductGroup(p.id)} 
-                      onQuickJoin={handleQuickJoin} 
                     />
                   ))}
                 </div>
@@ -881,7 +872,6 @@ export const Home: React.FC = () => {
                       key={p.id} 
                       product={p} 
                       groupOrder={getProductGroup(p.id)} 
-                      onQuickJoin={handleQuickJoin} 
                     />
                   ))}
                 </div>
@@ -902,7 +892,6 @@ export const Home: React.FC = () => {
                       key={p.id} 
                       product={p} 
                       groupOrder={getProductGroup(p.id)} 
-                      onQuickJoin={handleQuickJoin} 
                     />
                   ))}
                 </div>
@@ -923,7 +912,6 @@ export const Home: React.FC = () => {
                       key={p.id} 
                       product={p} 
                       groupOrder={getProductGroup(p.id)} 
-                      onQuickJoin={handleQuickJoin} 
                     />
                   ))}
                 </div>
@@ -944,7 +932,6 @@ export const Home: React.FC = () => {
                       key={p.id} 
                       product={p} 
                       groupOrder={getProductGroup(p.id)} 
-                      onQuickJoin={handleQuickJoin} 
                     />
                   ))}
                 </div>
@@ -1120,13 +1107,6 @@ export const Home: React.FC = () => {
           }
         }
       `}</style>
-      {/* AliExpress-Style Quick View Modal */}
-      <ProductQuickViewModal 
-        product={quickViewProduct}
-        groupOrder={quickViewProduct ? getProductGroup(quickViewProduct.id) : undefined}
-        onClose={() => setQuickViewProduct(null)}
-        addToast={addToast}
-      />
     </div>
   );
 };

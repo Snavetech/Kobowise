@@ -9,17 +9,15 @@ import { Heart, ShoppingCart, Lock, Check, Users } from 'lucide-react';
 interface ProductCardProps {
   product: Product;
   groupOrder?: GroupOrder;
-  onQuickJoin?: (product: Product) => void;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ 
   product, 
   groupOrder,
-  onQuickJoin
 }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { cartItems, addToCart } = useCart();
+  const { cartItems } = useCart();
   const existingCartItem = cartItems.find(item => item.product.id === product.id);
   const isAlreadyInCart = !!existingCartItem;
   const [isWished, setIsWished] = useState(false);
@@ -71,8 +69,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     <div 
       className="product-card hover-lift" 
       onClick={() => {
-        if (onQuickJoin) onQuickJoin(product);
-        else navigate(`/product/${product.id}`);
+        navigate(`/product/${product.id}`);
       }}
       style={{
         backgroundColor: '#FFFFFF',
@@ -369,12 +366,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                if (onQuickJoin) {
-                  onQuickJoin(product);
-                } else {
-                  addToCart(product, 1);
-                  navigate('/cart');
-                }
+                navigate(`/product/${product.id}`);
               }}
               className="btn-push"
               style={{
