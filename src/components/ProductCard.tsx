@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import type { Product, GroupOrder } from '../supabase';
 import { dbService } from '../supabase';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
 import { Heart, ShoppingCart, Lock, Check, Users } from 'lucide-react';
 
 interface ProductCardProps {
@@ -18,6 +19,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
   const { user } = useAuth();
+  const { addToCart } = useCart();
   const [isWished, setIsWished] = useState(false);
 
   useEffect(() => {
@@ -383,9 +385,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             </button>
           ) : (
             <button 
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/product/${product.id}`);
+                addToCart(product, 1);
+                navigate('/cart');
               }}
               className="btn-push"
               style={{
@@ -413,7 +417,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               }}
             >
               <ShoppingCart size={16} />
-              View & Join Group
+              Join Group Buy
             </button>
           )}
         </div>
