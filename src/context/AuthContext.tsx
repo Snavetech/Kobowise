@@ -163,11 +163,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return { success: false, error: waitlistResult.error };
         }
 
-        // In live mode, also send a confirmation email via Supabase Auth
-        // by creating a "pending" user (they won't be able to log in until approved)
-        if (!isDemoMode) {
-          // We don't create an auth user for traders yet — just store in waitlist table
-          // The admin will manually onboard them when trading goes live
+        // In live mode, send a confirmation email via Supabase Auth
+        if (!isDemoMode && supabase) {
+          try {
+            await supabase.auth.signUp({
+              email,
+              password: password && password !== 'waitlist-placeholder' ? password : `KbW-Waitlist#${Date.now()}`,
+              options: {
+                data: {
+                  full_name: fullName,
+                  phone_number: phoneNumber,
+                  role: 'trader',
+                  is_waitlisted: true
+                }
+              }
+            });
+          } catch (emailErr) {
+            console.warn('Supabase auth email trigger warning:', emailErr);
+          }
         }
 
         return { success: true, waitlisted: true };
