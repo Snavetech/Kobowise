@@ -13,7 +13,8 @@ import {
   ClipboardList,
   TrendingUp,
   FolderOpen,
-  CheckCircle
+  CheckCircle,
+  Trash2
 } from 'lucide-react';
 
 export const Profile: React.FC = () => {
@@ -347,6 +348,9 @@ export const Profile: React.FC = () => {
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
                           <div>
+                            <span style={{ fontSize: '11px', color: '#2563EB', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '2px' }}>
+                              ORDER #: {order.payment_reference || order.id}
+                            </span>
                             <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                               Trader: {order.trader_name}
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
@@ -362,13 +366,40 @@ export const Profile: React.FC = () => {
                             </span>
                           </div>
 
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                             <span className="badge" style={{ backgroundColor: badgeBg, color: badgeColor, textTransform: 'none', fontWeight: '700' }}>
                               {badgeText}
                             </span>
                             <span className="badge" style={getOrderStatusStyle(order.status)}>
                               {getOrderStatusText(order.status)}
                             </span>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (!user) return;
+                                if (window.confirm(`Are you sure you want to cancel and delete Order #${order.payment_reference || order.id}? This will free up your share and update the group progress bar.`)) {
+                                  await dbService.deleteOrder(order.id, user.id);
+                                  loadProfileData();
+                                }
+                              }}
+                              title="Cancel & Delete Order"
+                              style={{
+                                backgroundColor: '#FEF2F2',
+                                color: '#EF4444',
+                                border: '1px solid #FECACA',
+                                borderRadius: '12px',
+                                padding: '5px 10px',
+                                fontSize: '12px',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                marginLeft: '4px'
+                              }}
+                            >
+                              <Trash2 size={13} /> Delete
+                            </button>
                           </div>
                         </div>
 
@@ -413,8 +444,8 @@ export const Profile: React.FC = () => {
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                         <div>
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase' }}>
-                            ORDER: {order.payment_reference || order.id.substring(0, 10).toUpperCase()}
+                          <span style={{ fontSize: '11px', color: '#2563EB', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '2px' }}>
+                            ORDER #: {order.payment_reference || order.id}
                           </span>
                           <h4 style={{ fontSize: '16px', color: '#0F172A', fontWeight: '800', margin: '2px 0 4px 0', fontFamily: 'var(--font-heading)' }}>
                             {order.product_name}
@@ -435,6 +466,33 @@ export const Profile: React.FC = () => {
                           <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                             {new Date(order.created_at).toLocaleDateString()}
                           </span>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!user) return;
+                              if (window.confirm(`Are you sure you want to delete Order #${order.payment_reference || order.id}?`)) {
+                                await dbService.deleteOrder(order.id, user.id);
+                                loadProfileData();
+                              }
+                            }}
+                            title="Delete Order"
+                            style={{
+                              backgroundColor: '#FEF2F2',
+                              color: '#EF4444',
+                              border: '1px solid #FECACA',
+                              borderRadius: '10px',
+                              padding: '4px 8px',
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              marginTop: '4px'
+                            }}
+                          >
+                            <Trash2 size={12} /> Delete
+                          </button>
                         </div>
                       </div>
                     </div>

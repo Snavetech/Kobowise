@@ -120,6 +120,23 @@ export interface TraderWaitlistEntry {
   created_at: string;
 }
 
+/**
+ * Generates a unique order number starting with 3 random uppercase letters
+ * followed by 10 random numbers (e.g., KBW8392017465, DEL9182736450).
+ */
+export function generateUniqueOrderNumber(): string {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let prefix = '';
+  for (let i = 0; i < 3; i++) {
+    prefix += letters.charAt(Math.floor(Math.random() * letters.length));
+  }
+  let digits = '';
+  for (let i = 0; i < 10; i++) {
+    digits += Math.floor(Math.random() * 10).toString();
+  }
+  return `${prefix}${digits}`;
+}
+
 // ============================================================================
 // MOCK BACKEND DATA SEEDING
 // ============================================================================
@@ -980,6 +997,11 @@ export const dbService = {
     const product = products.find(p => p.id === productId);
     if (!product) throw new Error('Product not found');
 
+    const uniqueOrderNo = generateUniqueOrderNumber();
+    const finalRef = (paymentReference && paymentReference.length >= 13 && !paymentReference.startsWith('PAY-')) 
+      ? paymentReference 
+      : uniqueOrderNo;
+
     if (isDemoMode) {
       const groupOrders = getLocal<GroupOrder[]>('group_orders', []);
       let group = groupOrders.find(g => g.product_id === productId && g.status === 'pending');
@@ -1008,17 +1030,17 @@ export const dbService = {
 
       setLocal('group_orders', groupOrders);
 
-      // Create Order
+      // Create Order with unique order number
       const orders = getLocal<Order[]>('orders', []);
       const newOrder: Order = {
-        id: `order-${Date.now()}`,
+        id: uniqueOrderNo,
         buyer_id: buyerId,
         group_order_id: group.id,
         shares_bought: sharesToBuy,
         total_price: sharesToBuy * product.price_per_share,
         status: isComplete ? 'ready_for_pickup' : 'paid',
         payment_method: paymentMethod,
-        payment_reference: paymentReference,
+        payment_reference: finalRef,
         created_at: new Date().toISOString()
       };
       orders.push(newOrder);
@@ -1042,7 +1064,7 @@ export const dbService = {
         id: `pay-${Date.now()}`,
         order_id: newOrder.id,
         amount: newOrder.total_price,
-        reference: paymentReference,
+        reference: finalRef,
         status: 'success',
         created_at: new Date().toISOString()
       });
@@ -1054,7 +1076,7 @@ export const dbService = {
         id: `notif-${Date.now()}-user`,
         user_id: buyerId,
         title: 'Joined Group Buy!',
-        message: `Successfully paid ₦${newOrder.total_price} to join group for ${product.name}.`,
+        message: `Successfully paid ₦${newOrder.total_price} for Order ${finalRef} (${product.name}).`,
         is_read: false,
         created_at: new Date().toISOString()
       });
@@ -1070,7 +1092,7 @@ export const dbService = {
           created_at: new Date().toISOString()
         });
 
-        // Trigger updates for other buyers (simulate in local storage)
+        // Trigger updates for other buyers
         const orderBuyers = orderItems.filter(item => item.group_order_id === group!.id).map(item => item.buyer_id);
         orderBuyers.forEach(bId => {
           if (bId !== buyerId && bId !== product.trader_id) {
@@ -1088,16 +1110,14 @@ export const dbService = {
 
       setLocal('notifications', notifications);
 
-      // Emit updates
+      // Emit updates to instantly update progress bars
       mockRealtime.emit('groups_updated', groupOrders);
       mockRealtime.emit('notifications_updated', {});
       
       return newOrder;
     }
 
-    // Live Mode: Handle in SQL database via transactions or sequence of calls.
-    // For simplicity of execution in Live mode, we insert items sequentially.
-    // 1. Get or create active pending group_order
+    // Live Mode
     let { data: currentGroup, error: fetchError } = await supabase!
       .from('group_orders')
       .select('*')
@@ -1146,7 +1166,7 @@ export const dbService = {
         total_price: sharesToBuy * product.price_per_share,
         status: isCompleted ? 'ready_for_pickup' : 'paid',
         payment_method: paymentMethod,
-        payment_reference: paymentReference
+        payment_reference: finalRef
       })
       .select()
       .single();
@@ -1169,7 +1189,7 @@ export const dbService = {
       .insert({
         order_id: order.id,
         amount: order.total_price,
-        reference: paymentReference,
+        reference: finalRef,
         status: 'success'
       });
 
@@ -1179,11 +1199,10 @@ export const dbService = {
       .insert({
         user_id: buyerId,
         title: 'Joined Group Buy!',
-        message: `Successfully paid ₦${order.total_price} to join group for ${product.name}.`
+        message: `Successfully paid ₦${order.total_price} for Order ${finalRef} (${product.name}).`
       });
 
     if (isCompleted) {
-      // Notify trader
       await supabase!
         .from('notifications')
         .insert({
@@ -1193,7 +1212,11 @@ export const dbService = {
         });
     }
 
-    return order;
+    const allGroups = await this.getGroupOrders();
+    mockRealtime.emit('groups_updated', allGroups);
+    mockRealtime.emit('notifications_updated', {});
+
+    return { ...order, payment_reference: finalRef };
   },
 
   // --- ORDERS ---
@@ -1326,6 +1349,154 @@ export const dbService = {
       .eq('id', orderId);
 
     return !error;
+  },
+
+  async cancelOrder(orderId: string, buyerId: string): Promise<boolean> {
+    if (isDemoMode) {
+      const orders = getLocal<Order[]>('orders', []);
+      const order = orders.find(o => o.id === orderId && o.buyer_id === buyerId);
+      if (!order || order.status === 'cancelled') return false;
+
+      order.status = 'cancelled';
+      setLocal('orders', orders);
+
+      const groupOrders = getLocal<GroupOrder[]>('group_orders', []);
+      const groupIndex = groupOrders.findIndex(g => g.id === order.group_order_id);
+      if (groupIndex !== -1) {
+        const group = groupOrders[groupIndex];
+        const newPurchased = Math.max(0, group.shares_purchased - order.shares_bought);
+        group.shares_purchased = newPurchased;
+        if (newPurchased < group.shares_needed) {
+          group.status = 'pending';
+        }
+        setLocal('group_orders', groupOrders);
+        mockRealtime.emit('groups_updated', groupOrders);
+      }
+
+      const notifications = getLocal<Notification[]>('notifications', []);
+      notifications.push({
+        id: `notif-${Date.now()}`,
+        user_id: buyerId,
+        title: 'Order Cancelled',
+        message: `Order #${order.payment_reference || order.id} has been cancelled and group progress updated.`,
+        is_read: false,
+        created_at: new Date().toISOString()
+      });
+      setLocal('notifications', notifications);
+      mockRealtime.emit('notifications_updated', {});
+
+      return true;
+    }
+
+    try {
+      const { data: order } = await supabase!
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .eq('buyer_id', buyerId)
+        .single();
+
+      if (!order || order.status === 'cancelled') return false;
+
+      await supabase!
+        .from('orders')
+        .update({ status: 'cancelled' })
+        .eq('id', orderId);
+
+      const { data: group } = await supabase!
+        .from('group_orders')
+        .select('*')
+        .eq('id', order.group_order_id)
+        .single();
+
+      if (group) {
+        const newPurchased = Math.max(0, group.shares_purchased - order.shares_bought);
+        const isCompleted = newPurchased >= group.shares_needed;
+        await supabase!
+          .from('group_orders')
+          .update({
+            shares_purchased: newPurchased,
+            status: isCompleted ? 'completed' : 'pending'
+          })
+          .eq('id', group.id);
+      }
+
+      const allGroups = await this.getGroupOrders();
+      mockRealtime.emit('groups_updated', allGroups);
+      mockRealtime.emit('notifications_updated', {});
+      return true;
+    } catch (err) {
+      console.error('Error cancelling order:', err);
+      return false;
+    }
+  },
+
+  async deleteOrder(orderId: string, buyerId: string): Promise<boolean> {
+    if (isDemoMode) {
+      const orders = getLocal<Order[]>('orders', []);
+      const order = orders.find(o => o.id === orderId && o.buyer_id === buyerId);
+      if (!order) return false;
+
+      if (order.status !== 'cancelled') {
+        const groupOrders = getLocal<GroupOrder[]>('group_orders', []);
+        const groupIndex = groupOrders.findIndex(g => g.id === order.group_order_id);
+        if (groupIndex !== -1) {
+          const group = groupOrders[groupIndex];
+          const newPurchased = Math.max(0, group.shares_purchased - order.shares_bought);
+          group.shares_purchased = newPurchased;
+          if (newPurchased < group.shares_needed) {
+            group.status = 'pending';
+          }
+          setLocal('group_orders', groupOrders);
+          mockRealtime.emit('groups_updated', groupOrders);
+        }
+      }
+
+      const filtered = orders.filter(o => o.id !== orderId);
+      setLocal('orders', filtered);
+      mockRealtime.emit('notifications_updated', {});
+      return true;
+    }
+
+    try {
+      const { data: order } = await supabase!
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .eq('buyer_id', buyerId)
+        .single();
+
+      if (!order) return false;
+
+      if (order.status !== 'cancelled') {
+        const { data: group } = await supabase!
+          .from('group_orders')
+          .select('*')
+          .eq('id', order.group_order_id)
+          .single();
+
+        if (group) {
+          const newPurchased = Math.max(0, group.shares_purchased - order.shares_bought);
+          await supabase!
+            .from('group_orders')
+            .update({
+              shares_purchased: newPurchased,
+              status: newPurchased >= group.shares_needed ? 'completed' : 'pending'
+            })
+            .eq('id', group.id);
+        }
+      }
+
+      await supabase!.from('orders').delete().eq('id', orderId);
+
+      const allGroups = await this.getGroupOrders();
+      mockRealtime.emit('groups_updated', allGroups);
+      mockRealtime.emit('notifications_updated', {});
+      return true;
+    } catch (err) {
+      console.error('Error deleting order:', err);
+      return false;
+    }
   },
 
   // --- REVIEWS ---
