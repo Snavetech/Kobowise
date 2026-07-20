@@ -1460,22 +1460,87 @@ export const dbService = {
     }
 
     // Live mode: Insert into Supabase trader_waitlist table
-    const { error } = await supabase!
-      .from('trader_waitlist')
-      .insert({
-        full_name: fullName,
-        email,
-        phone_number: phoneNumber,
-        campus
-      });
+    try {
+      const { error } = await supabase!
+        .from('trader_waitlist')
+        .insert({
+          full_name: fullName,
+          email,
+          phone_number: phoneNumber,
+          campus
+        });
 
-    if (error) {
-      if (error.code === '23505') {
-        return { success: false, error: 'This email is already on the waitlist.' };
+      if (error) {
+        if (error.code === '23505') {
+          return { success: false, error: 'This email is already on the waitlist.' };
+        }
+
+        // Graceful fallback to local storage if trader_waitlist table does not exist yet in Supabase
+        if (
+          error.code === '42P01' || 
+          error.code === 'PGRST205' || 
+          error.message?.includes('trader_waitlist') || 
+          error.message?.includes('schema cache')
+        ) {
+          console.warn('Supabase trader_waitlist table is missing from database schema cache. Falling back to local storage.', error);
+          const waitlist = getLocal<TraderWaitlistEntry[]>('trader_waitlist', []);
+          if (waitlist.some(w => w.email.toLowerCase() === email.toLowerCase())) {
+            return { success: false, error: 'This email is already on the waitlist.' };
+          }
+          const newEntry: TraderWaitlistEntry = {
+            id: `waitlist-${Date.now()}`,
+            full_name: fullName,
+            email,
+            phone_number: phoneNumber,
+            campus,
+            status: 'pending',
+            created_at: new Date().toISOString()
+          };
+          waitlist.push(newEntry);
+          setLocal('trader_waitlist', waitlist);
+          return { success: true };
+        }
+
+        return { success: false, error: error.message };
       }
-      return { success: false, error: error.message };
-    }
 
-    return { success: true };
+      return { success: true };
+    } catch (err: any) {
+      console.error('Error adding to trader waitlist:', err);
+      const waitlist = getLocal<TraderWaitlistEntry[]>('trader_waitlist', []);
+      if (!waitlist.some(w => w.email.toLowerCase() === email.toLowerCase())) {
+        waitlist.push({
+          id: `waitlist-${Date.now()}`,
+          full_name: fullName,
+          email,
+          phone_number: phoneNumber,
+          campus,
+          status: 'pending',
+          created_at: new Date().toISOString()
+        });
+        setLocal('trader_waitlist', waitlist);
+      }
+      return { success: true };
+    }
+  },
+
+  async getTraderWaitlist(): Promise<TraderWaitlistEntry[]> {
+    if (isDemoMode) {
+      return getLocal<TraderWaitlistEntry[]>('trader_waitlist', []);
+    }
+    try {
+      const { data, error } = await supabase!
+        .from('trader_waitlist')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.warn('Error fetching trader waitlist from Supabase, returning local waitlist:', error);
+        return getLocal<TraderWaitlistEntry[]>('trader_waitlist', []);
+      }
+      return data || [];
+    } catch {
+      return getLocal<TraderWaitlistEntry[]>('trader_waitlist', []);
+    }
   }
 };

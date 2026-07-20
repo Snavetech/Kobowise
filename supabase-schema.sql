@@ -258,6 +258,9 @@ CREATE TABLE IF NOT EXISTS public.trader_waitlist (
 
 ALTER TABLE public.trader_waitlist ENABLE ROW LEVEL SECURITY;
 
+-- Permissions
+GRANT ALL ON TABLE public.trader_waitlist TO anon, authenticated, service_role;
+
 -- Anyone can sign up for the waitlist (public insert)
 CREATE POLICY "Anyone can join the trader waitlist" ON public.trader_waitlist FOR INSERT WITH CHECK (true);
 -- Only service role / admin can view waitlist entries
