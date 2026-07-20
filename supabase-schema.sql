@@ -153,9 +153,16 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Apply updated_at triggers
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON public.profiles;
 CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_products_updated_at ON public.products;
 CREATE TRIGGER update_products_updated_at BEFORE UPDATE ON public.products FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_group_orders_updated_at ON public.group_orders;
 CREATE TRIGGER update_group_orders_updated_at BEFORE UPDATE ON public.group_orders FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_orders_updated_at ON public.orders;
 CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON public.orders FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- Function to handle new user profile registration
@@ -176,6 +183,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Trigger for auth.users signup
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
@@ -197,52 +205,95 @@ ALTER TABLE public.wishlist ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
 -- Profiles Policies
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
 CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
 CREATE POLICY "Users can update their own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
 
 -- Categories Policies
+DROP POLICY IF EXISTS "Categories are viewable by everyone" ON public.categories;
 CREATE POLICY "Categories are viewable by everyone" ON public.categories FOR SELECT USING (true);
 
 -- Products Policies
+DROP POLICY IF EXISTS "Products are viewable by everyone" ON public.products;
 CREATE POLICY "Products are viewable by everyone" ON public.products FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Traders can insert their own products" ON public.products;
 CREATE POLICY "Traders can insert their own products" ON public.products FOR INSERT WITH CHECK (auth.uid() = trader_id AND EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'trader'));
+
+DROP POLICY IF EXISTS "Traders can update their own products" ON public.products;
 CREATE POLICY "Traders can update their own products" ON public.products FOR UPDATE USING (auth.uid() = trader_id);
+
+DROP POLICY IF EXISTS "Traders can delete their own products" ON public.products;
 CREATE POLICY "Traders can delete their own products" ON public.products FOR DELETE USING (auth.uid() = trader_id);
 
 -- Product Images Policies
+DROP POLICY IF EXISTS "Images are viewable by everyone" ON public.product_images;
 CREATE POLICY "Images are viewable by everyone" ON public.product_images FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Traders can add images to their products" ON public.product_images;
 CREATE POLICY "Traders can add images to their products" ON public.product_images FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM public.products WHERE id = product_id AND trader_id = auth.uid()));
+
+DROP POLICY IF EXISTS "Traders can delete images from their products" ON public.product_images;
 CREATE POLICY "Traders can delete images from their products" ON public.product_images FOR DELETE USING (EXISTS (SELECT 1 FROM public.products WHERE id = product_id AND trader_id = auth.uid()));
 
 -- Group Orders Policies
+DROP POLICY IF EXISTS "Group orders are viewable by everyone" ON public.group_orders;
 CREATE POLICY "Group orders are viewable by everyone" ON public.group_orders FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Authenticated users can create group orders" ON public.group_orders;
 CREATE POLICY "Authenticated users can create group orders" ON public.group_orders FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
+DROP POLICY IF EXISTS "Authenticated users can update group orders" ON public.group_orders;
 CREATE POLICY "Authenticated users can update group orders" ON public.group_orders FOR UPDATE USING (auth.uid() IS NOT NULL);
 
 -- Order Items Policies
+DROP POLICY IF EXISTS "Users can view their own order items" ON public.order_items;
 CREATE POLICY "Users can view their own order items" ON public.order_items FOR SELECT USING (auth.uid() = buyer_id OR EXISTS (SELECT 1 FROM public.group_orders go JOIN public.products p ON go.product_id = p.id WHERE go.id = group_order_id AND p.trader_id = auth.uid()));
+
+DROP POLICY IF EXISTS "Users can add order items" ON public.order_items;
 CREATE POLICY "Users can add order items" ON public.order_items FOR INSERT WITH CHECK (auth.uid() = buyer_id);
 
 -- Orders Policies
+DROP POLICY IF EXISTS "Users can view their own orders" ON public.orders;
 CREATE POLICY "Users can view their own orders" ON public.orders FOR SELECT USING (auth.uid() = buyer_id OR EXISTS (SELECT 1 FROM public.group_orders go JOIN public.products p ON go.product_id = p.id WHERE go.id = group_order_id AND p.trader_id = auth.uid()));
+
+DROP POLICY IF EXISTS "Users can insert their own orders" ON public.orders;
 CREATE POLICY "Users can insert their own orders" ON public.orders FOR INSERT WITH CHECK (auth.uid() = buyer_id);
+
+DROP POLICY IF EXISTS "Traders can update orders of their products" ON public.orders;
 CREATE POLICY "Traders can update orders of their products" ON public.orders FOR UPDATE USING (EXISTS (SELECT 1 FROM public.group_orders go JOIN public.products p ON go.product_id = p.id WHERE go.id = group_order_id AND p.trader_id = auth.uid()));
 
 -- Payments Policies
+DROP POLICY IF EXISTS "Users can view their own payments" ON public.payments;
 CREATE POLICY "Users can view their own payments" ON public.payments FOR SELECT USING (EXISTS (SELECT 1 FROM public.orders o WHERE o.id = order_id AND o.buyer_id = auth.uid()));
+
+DROP POLICY IF EXISTS "Users can insert payments" ON public.payments;
 CREATE POLICY "Users can insert payments" ON public.payments FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM public.orders o WHERE o.id = order_id AND o.buyer_id = auth.uid()));
 
 -- Reviews Policies
+DROP POLICY IF EXISTS "Reviews are viewable by everyone" ON public.reviews;
 CREATE POLICY "Reviews are viewable by everyone" ON public.reviews FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Authenticated buyers can insert reviews" ON public.reviews;
 CREATE POLICY "Authenticated buyers can insert reviews" ON public.reviews FOR INSERT WITH CHECK (auth.uid() = buyer_id);
+
+DROP POLICY IF EXISTS "Users can update their reviews" ON public.reviews;
 CREATE POLICY "Users can update their reviews" ON public.reviews FOR UPDATE USING (auth.uid() = buyer_id);
 
 -- Wishlist Policies
+DROP POLICY IF EXISTS "Users can view their own wishlist" ON public.wishlist;
 CREATE POLICY "Users can view their own wishlist" ON public.wishlist FOR SELECT USING (auth.uid() = buyer_id);
+
+DROP POLICY IF EXISTS "Users can manage their wishlist" ON public.wishlist;
 CREATE POLICY "Users can manage their wishlist" ON public.wishlist FOR ALL USING (auth.uid() = buyer_id);
 
 -- Notifications Policies
+DROP POLICY IF EXISTS "Users can view their own notifications" ON public.notifications;
 CREATE POLICY "Users can view their own notifications" ON public.notifications FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own notifications" ON public.notifications;
 CREATE POLICY "Users can update their own notifications" ON public.notifications FOR UPDATE USING (auth.uid() = user_id);
 
 -- TRADER WAITLIST (Pre-launch signups for campus traders)
@@ -262,8 +313,11 @@ ALTER TABLE public.trader_waitlist ENABLE ROW LEVEL SECURITY;
 GRANT ALL ON TABLE public.trader_waitlist TO anon, authenticated, service_role;
 
 -- Anyone can sign up for the waitlist (public insert)
+DROP POLICY IF EXISTS "Anyone can join the trader waitlist" ON public.trader_waitlist;
 CREATE POLICY "Anyone can join the trader waitlist" ON public.trader_waitlist FOR INSERT WITH CHECK (true);
+
 -- Only service role / admin can view waitlist entries
+DROP POLICY IF EXISTS "Waitlist entries viewable by service role" ON public.trader_waitlist;
 CREATE POLICY "Waitlist entries viewable by service role" ON public.trader_waitlist FOR SELECT USING (true);
 
 -- ============================================================================
