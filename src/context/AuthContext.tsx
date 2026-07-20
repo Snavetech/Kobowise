@@ -170,6 +170,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               email,
               password: password && password !== 'waitlist-placeholder' ? password : `KbW-Waitlist#${Date.now()}`,
               options: {
+                emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
                 data: {
                   full_name: fullName,
                   phone_number: phoneNumber,
@@ -222,6 +223,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           email,
           password,
           options: {
+            emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
             data: {
               role,
               full_name: fullName,

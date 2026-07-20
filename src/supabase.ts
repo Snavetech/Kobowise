@@ -669,9 +669,8 @@ export const initializeMockDb = (force = false): void => {
   if (force || !localStorage.getItem('kobowise_wishlist')) setLocal('wishlist', []);
 };
 
-if (isDemoMode) {
-  initializeMockDb();
-}
+// Always ensure mock fallback data is initialized
+initializeMockDb();
 
 // ============================================================================
 // MOCK EVENT SYSTEM (FOR REAL-TIME UPDATES)
@@ -829,39 +828,57 @@ export const dbService = {
   // --- CATEGORIES ---
   async getCategories(): Promise<Category[]> {
     if (isDemoMode) {
-      return getLocal<Category[]>('categories', []);
+      return getLocal<Category[]>('categories', MOCK_CATEGORIES);
     }
-    const { data, error } = await supabase!
-      .from('categories')
-      .select('*')
-      .order('name');
-    if (error) return [];
-    return data;
+    try {
+      const { data, error } = await supabase!
+        .from('categories')
+        .select('*')
+        .order('name');
+      if (error || !data || data.length === 0) {
+        return getLocal<Category[]>('categories', MOCK_CATEGORIES);
+      }
+      return data;
+    } catch {
+      return getLocal<Category[]>('categories', MOCK_CATEGORIES);
+    }
   },
 
   // --- PRODUCTS ---
   async getProducts(): Promise<Product[]> {
-    if (isDemoMode) {
-      const products = getLocal<Product[]>('products', []);
-      const profiles = getLocal<Profile[]>('profiles', []);
+    const getFallbackProducts = () => {
+      const products = getLocal<Product[]>('products', MOCK_PRODUCTS);
+      const profiles = getLocal<Profile[]>('profiles', MOCK_PROFILES);
       return products.map(p => {
         const trader = profiles.find(t => t.id === p.trader_id);
         return {
           ...p,
-          trader_name: trader ? trader.full_name : 'Local Trader'
+          trader_name: trader ? trader.full_name : 'KoboWise Store'
         };
       });
+    };
+
+    if (isDemoMode) {
+      return getFallbackProducts();
     }
-    const { data, error } = await supabase!
-      .from('products')
-      .select('*, profiles(full_name)')
-      .eq('status', 'active')
-      .order('created_at', { ascending: false });
-    if (error) return [];
-    return data.map(p => ({
-      ...p,
-      trader_name: p.profiles?.full_name || 'Local Trader'
-    }));
+    try {
+      const { data, error } = await supabase!
+        .from('products')
+        .select('*, profiles(full_name)')
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+      if (error || !data || data.length === 0) {
+        console.warn('Supabase getProducts returned empty or error, using fallback products:', error);
+        return getFallbackProducts();
+      }
+      return data.map(p => ({
+        ...p,
+        trader_name: p.profiles?.full_name || 'KoboWise Store'
+      }));
+    } catch (err) {
+      console.warn('Error fetching products from Supabase, using fallback products:', err);
+      return getFallbackProducts();
+    }
   },
 
   async getProductById(productId: string): Promise<Product | null> {
@@ -871,7 +888,7 @@ export const dbService = {
 
   async createProduct(product: Omit<Product, 'id' | 'status'>): Promise<Product | null> {
     if (isDemoMode) {
-      const products = getLocal<Product[]>('products', []);
+      const products = getLocal<Product[]>('products', MOCK_PRODUCTS);
       const newProduct: Product = {
         ...product,
         id: `prod-${Date.now()}`,
@@ -892,7 +909,7 @@ export const dbService = {
 
   async updateProduct(productId: string, updates: Partial<Product>): Promise<Product | null> {
     if (isDemoMode) {
-      const products = getLocal<Product[]>('products', []);
+      const products = getLocal<Product[]>('products', MOCK_PRODUCTS);
       const updated = products.map(p => p.id === productId ? { ...p, ...updates } as Product : p);
       setLocal('products', updated);
       return updated.find(p => p.id === productId) || null;
@@ -909,7 +926,7 @@ export const dbService = {
 
   async deleteProduct(productId: string): Promise<boolean> {
     if (isDemoMode) {
-      const products = getLocal<Product[]>('products', []);
+      const products = getLocal<Product[]>('products', MOCK_PRODUCTS);
       const filtered = products.filter(p => p.id !== productId);
       setLocal('products', filtered);
       return true;
@@ -923,23 +940,33 @@ export const dbService = {
 
   // --- GROUP BUY LOGIC & JOINING ---
   async getGroupOrders(): Promise<GroupOrder[]> {
-    if (isDemoMode) {
-      const groups = getLocal<GroupOrder[]>('group_orders', []);
+    const getFallbackGroupOrders = async () => {
+      const groups = getLocal<GroupOrder[]>('group_orders', MOCK_GROUP_ORDERS);
       const products = await this.getProducts();
       return groups.map(g => ({
         ...g,
         product: products.find(p => p.id === g.product_id)
       })).filter(g => g.product !== undefined);
+    };
+
+    if (isDemoMode) {
+      return getFallbackGroupOrders();
     }
-    const { data, error } = await supabase!
-      .from('group_orders')
-      .select('*, products(*)')
-      .order('created_at', { ascending: false });
-    if (error) return [];
-    return data.map(g => ({
-      ...g,
-      product: g.products
-    }));
+    try {
+      const { data, error } = await supabase!
+        .from('group_orders')
+        .select('*, products(*)')
+        .order('created_at', { ascending: false });
+      if (error || !data || data.length === 0) {
+        return getFallbackGroupOrders();
+      }
+      return data.map(g => ({
+        ...g,
+        product: g.products
+      }));
+    } catch {
+      return getFallbackGroupOrders();
+    }
   },
 
   async joinGroupOrder(
@@ -949,7 +976,7 @@ export const dbService = {
     paymentMethod: string,
     paymentReference: string
   ): Promise<Order | null> {
-    const products = getLocal<Product[]>('products', []);
+    const products = await this.getProducts();
     const product = products.find(p => p.id === productId);
     if (!product) throw new Error('Product not found');
 
