@@ -1003,7 +1003,7 @@ export const dbService = {
       : uniqueOrderNo;
 
     if (isDemoMode) {
-      const groupOrders = getLocal<GroupOrder[]>('group_orders', []);
+      const groupOrders = getLocal<GroupOrder[]>('group_orders', MOCK_GROUP_ORDERS);
       let group = groupOrders.find(g => g.product_id === productId && g.status === 'pending');
       
       if (!group) {

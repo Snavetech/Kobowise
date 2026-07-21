@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
 import { dbService, mockRealtime } from '../supabase';
 import type { Product, Category, GroupOrder } from '../supabase';
 import { ProductCard } from '../components/ProductCard';
@@ -22,6 +23,7 @@ import {
 
 export const Home: React.FC = () => {
   const { user } = useAuth();
+  const { cartItems } = useCart();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isBrowseTab = searchParams.get('tab') === 'browse';
@@ -128,6 +130,14 @@ export const Home: React.FC = () => {
     return groupOrders.find(g => g.product_id === productId && g.status === 'pending');
   };
 
+  const getEffectiveSharesPurchased = (productId: string, totalShares: number) => {
+    const g = getProductGroup(productId);
+    const confirmedShares = g ? g.shares_purchased : 0;
+    const cartItem = cartItems.find(item => item.product.id === productId);
+    const cartShares = cartItem ? cartItem.sharesBought : 0;
+    return Math.min(totalShares, confirmedShares + cartShares);
+  };
+
   // Filtering products
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -147,36 +157,31 @@ export const Home: React.FC = () => {
       return b.price_per_share - a.price_per_share;
     }
     // Default: recommended (higher group progress first)
-    const groupA = getProductGroup(a.id);
-    const groupB = getProductGroup(b.id);
-    const progressA = groupA ? (groupA.shares_purchased / groupA.shares_needed) : 0;
-    const progressB = groupB ? (groupB.shares_purchased / groupB.shares_needed) : 0;
+    const progressA = getEffectiveSharesPurchased(a.id, a.total_shares) / a.total_shares;
+    const progressB = getEffectiveSharesPurchased(b.id, b.total_shares) / b.total_shares;
     return progressB - progressA;
   });
 
   // Groupings for home layout (Status based)
   const almostCompleteProducts = sortedProducts.filter(p => {
-    const g = getProductGroup(p.id);
-    if (!g) return false;
-    return (g.shares_needed - g.shares_purchased) === 1;
+    const effectiveShares = getEffectiveSharesPurchased(p.id, p.total_shares);
+    return (p.total_shares - effectiveShares) === 1;
   });
 
   const nearlyFullProducts = sortedProducts.filter(p => {
-    const g = getProductGroup(p.id);
-    if (!g) return false;
-    return (g.shares_needed - g.shares_purchased) === 2;
+    const effectiveShares = getEffectiveSharesPurchased(p.id, p.total_shares);
+    return (p.total_shares - effectiveShares) === 2;
   });
 
   const halfwayThereProducts = sortedProducts.filter(p => {
-    const g = getProductGroup(p.id);
-    if (!g) return false;
-    const left = g.shares_needed - g.shares_purchased;
-    return left >= 3 && g.shares_purchased > 0;
+    const effectiveShares = getEffectiveSharesPurchased(p.id, p.total_shares);
+    const left = p.total_shares - effectiveShares;
+    return left >= 3 && effectiveShares > 0;
   });
 
   const newlyListedProducts = sortedProducts.filter(p => {
-    const g = getProductGroup(p.id);
-    return !g || g.shares_purchased === 0;
+    const effectiveShares = getEffectiveSharesPurchased(p.id, p.total_shares);
+    return effectiveShares === 0;
   });
 
   // Groupings by split size (1, 2, 3, 4 buyers)

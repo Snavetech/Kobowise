@@ -169,8 +169,11 @@ export const ProductDetails: React.FC = () => {
     );
   }
 
-  const sharesPurchased = groupOrder ? groupOrder.shares_purchased : 0;
-  const sharesLeft = product.total_shares - sharesPurchased;
+  const existingInCart = cartItems.find(item => item.product.id === product.id);
+  const cartShares = existingInCart ? existingInCart.sharesBought : 0;
+  const confirmedShares = groupOrder ? groupOrder.shares_purchased : 0;
+  const sharesPurchased = Math.min(product.total_shares, confirmedShares + cartShares);
+  const sharesLeft = Math.max(0, product.total_shares - sharesPurchased);
   
   // Cap selectable shares to total shares for this bulk product
   const maxAvailableShares = Math.max(1, product.total_shares);

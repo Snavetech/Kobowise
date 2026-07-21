@@ -41,9 +41,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     const added = await dbService.toggleWishlist(user.id, product.id);
     setIsWished(added);
   };
-  const sharesPurchased = groupOrder ? groupOrder.shares_purchased : 0;
+  const confirmedShares = groupOrder ? groupOrder.shares_purchased : 0;
+  const cartShares = existingCartItem ? existingCartItem.sharesBought : 0;
+  const sharesPurchased = Math.min(product.total_shares, confirmedShares + cartShares);
   const totalShares = product.total_shares;
-  const sharesLeft = totalShares - sharesPurchased;
+  const sharesLeft = Math.max(0, totalShares - sharesPurchased);
   const isComplete = sharesLeft === 0;
 
   const percentage = Math.min(100, Math.max(0, (sharesPurchased / totalShares) * 100));

@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { dbService } from '../supabase';
+import { dbService, type GroupOrder } from '../supabase';
 import { PaystackModal } from '../components/PaystackModal';
 import { StripeModal } from '../components/StripeModal';
 import { 
@@ -34,6 +34,11 @@ export const Checkout: React.FC = () => {
   
   // Promo code
   const [promoCode, setPromoCode] = useState('');
+  const [groupOrders, setGroupOrders] = useState<GroupOrder[]>([]);
+
+  useEffect(() => {
+    dbService.getGroupOrders().then(setGroupOrders);
+  }, []);
 
   const getPortionDetail = (name: string) => {
     if (name.includes('Rice')) return '1 share of 10 — 5kg';
@@ -188,60 +193,71 @@ export const Checkout: React.FC = () => {
             </div>
 
             {/* Progress tracker inside success card */}
-            <div style={{ backgroundColor: '#F8FAFC', padding: '16px', borderRadius: '16px', border: '1px solid #DBEAFE', marginBottom: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '700', color: '#475569', marginBottom: '6px' }}>
-                <span>Group Progress</span>
-                <span style={{ color: '#2563EB' }}>75% Filled</span>
-              </div>
-              <ProgressBar purchased={3} needed={4} />
-              
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
-                {/* Overlapping avatars */}
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                  {['👩‍🎓', '👨‍🎓', '🧑‍🎓'].map((avatar, idx) => (
-                    <div 
-                      key={idx}
-                      style={{ 
-                        width: '28px', 
-                        height: '28px', 
-                        borderRadius: '50%', 
-                        backgroundColor: '#FFFFFF', 
-                        border: '1px solid #DBEAFE', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center',
-                        fontSize: '14px',
-                        marginLeft: idx > 0 ? '-8px' : '0',
-                        zIndex: 10 - idx
-                      }}
-                    >
-                      {avatar}
+            {(() => {
+              const successGroup = groupOrders.find(g => g.product_id === purchasedItem.product.id);
+              const confirmedSuccessShares = successGroup ? successGroup.shares_purchased : 0;
+              const effectiveSuccessShares = Math.min(purchasedItem.product.total_shares, Math.max(purchasedItem.sharesBought, confirmedSuccessShares + purchasedItem.sharesBought));
+              const successPct = Math.round((effectiveSuccessShares / purchasedItem.product.total_shares) * 100);
+              const sharesLeft = Math.max(0, purchasedItem.product.total_shares - effectiveSuccessShares);
+              return (
+                <div style={{ backgroundColor: '#F8FAFC', padding: '16px', borderRadius: '16px', border: '1px solid #DBEAFE', marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '700', color: '#475569', marginBottom: '6px' }}>
+                    <span>Group Progress</span>
+                    <span style={{ color: '#2563EB' }}>{successPct}% Filled</span>
+                  </div>
+                  <ProgressBar purchased={effectiveSuccessShares} needed={purchasedItem.product.total_shares} />
+                  
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+                    {/* Overlapping avatars */}
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      {['👩‍🎓', '👨‍🎓', '🧑‍🎓'].map((avatar, idx) => (
+                        <div 
+                          key={idx}
+                          style={{ 
+                            width: '28px', 
+                            height: '28px', 
+                            borderRadius: '50%', 
+                            backgroundColor: '#FFFFFF', 
+                            border: '1px solid #DBEAFE', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center',
+                            fontSize: '14px',
+                            marginLeft: idx > 0 ? '-8px' : '0',
+                            zIndex: 10 - idx
+                          }}
+                        >
+                          {avatar}
+                        </div>
+                      ))}
+                      {sharesLeft > 0 && (
+                        <div style={{ 
+                          width: '28px', 
+                          height: '28px', 
+                          borderRadius: '50%', 
+                          backgroundColor: '#F8FAFC', 
+                          border: '1px dashed #94A3B8', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          fontSize: '10px',
+                          fontWeight: '800',
+                          color: '#94A3B8',
+                          marginLeft: '-8px',
+                          zIndex: 5
+                        }}>
+                          +{sharesLeft}
+                        </div>
+                      )}
                     </div>
-                  ))}
-                  <div style={{ 
-                    width: '28px', 
-                    height: '28px', 
-                    borderRadius: '50%', 
-                    backgroundColor: '#F8FAFC', 
-                    border: '1px dashed #94A3B8', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    fontSize: '10px',
-                    fontWeight: '800',
-                    color: '#94A3B8',
-                    marginLeft: '-8px',
-                    zIndex: 5
-                  }}>
-                    +1
+
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '700' }}>
+                      {sharesLeft === 0 ? 'Group Complete!' : `Awaiting ${sharesLeft} more`}
+                    </span>
                   </div>
                 </div>
-
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '700' }}>
-                  Awaiting 1 more
-                </span>
-              </div>
-            </div>
+              );
+            })()}
 
             {/* Delivery Info banner */}
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center', padding: '14px', backgroundColor: '#E3F2FD', color: '#0D47A1', borderRadius: '14px', fontSize: '12px', fontWeight: '600' }}>
@@ -389,13 +405,23 @@ export const Checkout: React.FC = () => {
                   </div>
 
                   {/* Progress tracker under product summary */}
-                  <div style={{ marginTop: '12px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '700', color: '#94A3B8', marginBottom: '4px' }}>
-                      <span>3/4 joined</span>
-                      <span style={{ color: '#F97316' }}>1 spot left!</span>
-                    </div>
-                    <ProgressBar purchased={3} needed={4} />
-                  </div>
+                  {(() => {
+                    const group = groupOrders.find(g => g.product_id === item.product.id && g.status === 'pending');
+                    const confirmedShares = group ? group.shares_purchased : 0;
+                    const effectiveShares = Math.min(item.product.total_shares, confirmedShares + item.sharesBought);
+                    const sharesLeft = Math.max(0, item.product.total_shares - effectiveShares);
+                    return (
+                      <div style={{ marginTop: '12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '700', color: '#94A3B8', marginBottom: '4px' }}>
+                          <span>{effectiveShares}/{item.product.total_shares} joined</span>
+                          <span style={{ color: sharesLeft === 1 ? '#F97316' : '#2563EB' }}>
+                            {sharesLeft === 0 ? 'Group Full!' : sharesLeft === 1 ? '1 spot left!' : `${sharesLeft} spots left`}
+                          </span>
+                        </div>
+                        <ProgressBar purchased={effectiveShares} needed={item.product.total_shares} />
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             ))}
