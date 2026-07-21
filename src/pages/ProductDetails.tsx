@@ -384,38 +384,6 @@ export const ProductDetails: React.FC = () => {
                 </div>
               )}
             </div>
-
-            {/* OTHER PRODUCTS TO SHOP (Column 1 Section like AliExpress sample) */}
-            {relatedProducts.length > 0 && (
-              <div style={{ marginTop: '36px', paddingTop: '28px', borderTop: '1px dashed #DBEAFE' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                  <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <ShoppingBag size={18} style={{ color: '#2563EB' }} />
-                    Other Products to Shop
-                  </h3>
-                  <Link to="/home?tab=browse" style={{ fontSize: '12px', color: '#2563EB', fontWeight: '700', textDecoration: 'none' }}>
-                    See all &rarr;
-                  </Link>
-                </div>
-
-                <div style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', 
-                  gap: '16px' 
-                }}>
-                  {relatedProducts.slice(0, 4).map(relProd => {
-                    const relGroup = allGroupOrders.find(g => g.product_id === relProd.id && g.status === 'pending');
-                    return (
-                      <ProductCard 
-                        key={`col1-${relProd.id}`} 
-                        product={relProd} 
-                        groupOrder={relGroup} 
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Column 2: Booking Box */}
@@ -739,6 +707,56 @@ export const ProductDetails: React.FC = () => {
 
         </div>
 
+        {/* OTHER PRODUCTS TO SHOP (Placed directly after Description, Price & Join Group Buy!) */}
+        {relatedProducts.length > 0 && (
+          <section style={{ marginTop: '48px', borderTop: '1px solid #DBEAFE', paddingTop: '36px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ShoppingBag size={22} style={{ color: '#2563EB' }} />
+                  <h3 style={{ fontSize: '22px', fontWeight: '800', color: '#0F172A', fontFamily: 'var(--font-heading)' }}>
+                    Other Products to Shop
+                  </h3>
+                </div>
+                <p style={{ fontSize: '13px', color: '#64748B', margin: '4px 0 0 0' }}>
+                  Explore more group split deals & campus marketplace offers
+                </p>
+              </div>
+              <Link 
+                to="/home?tab=browse" 
+                style={{ 
+                  color: '#2563EB', 
+                  fontSize: '13px', 
+                  fontWeight: '700', 
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                View all products &rarr;
+              </Link>
+            </div>
+
+            <div className="grid-responsive" style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+              gap: '20px'
+            }}>
+              {relatedProducts.map(relProd => {
+                const relGroup = allGroupOrders.find(g => g.product_id === relProd.id && g.status === 'pending');
+                return (
+                  <ProductCard 
+                    key={relProd.id} 
+                    product={relProd} 
+                    groupOrder={relGroup} 
+                  />
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         {/* REVIEWS SECTION */}
         <section style={{ marginTop: '56px', borderTop: '1px solid var(--border-color)', paddingTop: '40px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
@@ -840,56 +858,6 @@ export const ProductDetails: React.FC = () => {
 
           </div>
         </section>
-
-        {/* OTHER PRODUCTS TO SHOP (AliExpress / Marketplace Related Items) */}
-        {relatedProducts.length > 0 && (
-          <section style={{ marginTop: '56px', borderTop: '1px solid var(--border-color)', paddingTop: '40px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <ShoppingBag size={22} style={{ color: '#2563EB' }} />
-                  <h3 style={{ fontSize: '22px', fontWeight: '800', color: '#0F172A', fontFamily: 'var(--font-heading)' }}>
-                    Other Products to Shop
-                  </h3>
-                </div>
-                <p style={{ fontSize: '13px', color: '#64748B', margin: '4px 0 0 0' }}>
-                  Explore more group split deals & campus marketplace offers
-                </p>
-              </div>
-              <Link 
-                to="/home?tab=browse" 
-                style={{ 
-                  color: '#2563EB', 
-                  fontSize: '13px', 
-                  fontWeight: '700', 
-                  textDecoration: 'none',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-              >
-                View all products &rarr;
-              </Link>
-            </div>
-
-            <div className="grid-responsive" style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-              gap: '20px'
-            }}>
-              {relatedProducts.map(relProd => {
-                const relGroup = allGroupOrders.find(g => g.product_id === relProd.id && g.status === 'pending');
-                return (
-                  <ProductCard 
-                    key={relProd.id} 
-                    product={relProd} 
-                    groupOrder={relGroup} 
-                  />
-                );
-              })}
-            </div>
-          </section>
-        )}
 
       </div>
 
