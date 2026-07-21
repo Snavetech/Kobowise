@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
+import type { CartItem } from '../context/CartContext';
 import { dbService, mockRealtime } from '../supabase';
 import type { Order, Product, Notification, GroupOrder } from '../supabase';
 import { ProgressBar } from '../components/ProgressBar';
@@ -9,20 +11,33 @@ import {
   ShoppingBag, 
   Heart, 
   Bell, 
-  MapPin, 
   ClipboardList,
   TrendingUp,
   FolderOpen,
   CheckCircle,
-  Trash2
+  Trash2,
+  Search,
+  SlidersHorizontal,
+  Headphones,
+  Truck,
+  X,
+  ChevronRight,
+  CreditCard
 } from 'lucide-react';
 
 export const Profile: React.FC = () => {
   const { user } = useAuth();
+  const { cartItems, removeFromCart } = useCart();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialTab = (searchParams.get('tab') as any) || 'groups';
   const [activeTab, setActiveTab] = useState<'groups' | 'orders' | 'wishlist' | 'notifications'>(initialTab);
+  
+  // Purchases lifecycle subtabs state (AliExpress style)
+  const [searchQuery, setSearchQuery] = useState('');
+  const [purchaseTab, setPurchaseTab] = useState<'all' | 'to_pay' | 'processing' | 'processed' | 'returns' | 'review' | 'completed'>('all');
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [trackingModalOrder, setTrackingModalOrder] = useState<Order | null>(null);
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -81,54 +96,6 @@ export const Profile: React.FC = () => {
     if (user) {
       const notifs = await dbService.getNotifications(user.id);
       setNotifications(notifs);
-    }
-  };
-
-  const getOrderStatusStyle = (status: Order['status']) => {
-    switch (status) {
-      case 'ready_for_pickup':
-        return { color: 'var(--status-completed)', backgroundColor: 'var(--status-completed-bg)' };
-      case 'delivered':
-        return { color: 'var(--primary-navy)', backgroundColor: '#E0F2FE' };
-      case 'cancelled':
-        return { color: 'var(--status-cancelled)', backgroundColor: 'var(--status-cancelled-bg)' };
-      default:
-        return { color: 'var(--status-pending)', backgroundColor: 'var(--status-pending-bg)' };
-    }
-  };
-
-  const getOrderStatusText = (status: Order['status']) => {
-    switch (status) {
-      case 'ready_for_pickup': 
-        return (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            Ready for Pickup <i className="fa-solid fa-box" style={{ fontSize: '11px' }}></i>
-          </span>
-        );
-      case 'delivered': 
-        return (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            Delivered/Collected <i className="fa-solid fa-circle-check" style={{ fontSize: '11px' }}></i>
-          </span>
-        );
-      case 'cancelled': 
-        return (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            Cancelled <i className="fa-solid fa-circle-xmark" style={{ fontSize: '11px' }}></i>
-          </span>
-        );
-      case 'processing': 
-        return (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            Processing Order <i className="fa-solid fa-gear fa-spin" style={{ fontSize: '11px' }}></i>
-          </span>
-        );
-      default: 
-        return (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            Paid (Group Pending) <i className="fa-regular fa-clock" style={{ fontSize: '11px' }}></i>
-          </span>
-        );
     }
   };
 
@@ -306,199 +273,350 @@ export const Profile: React.FC = () => {
 
         {/* Tab Content Panels */}
         <div>
-          {/* TAB 1: ACTIVE GROUP BUYS */}
-          {activeTab === 'groups' && (
+          {/* TAB 1 & 2: MY PURCHASES ORDER LIFECYCLE DASHBOARD */}
+          {(activeTab === 'groups' || activeTab === 'orders') && (
             <div>
-              {activeOrders.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px 20px', backgroundColor: '#FFFFFF', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
-                  <ClipboardList size={40} style={{ color: 'var(--text-muted)', marginBottom: '12px' }} />
-                  <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>No active group splits at the moment.</p>
-                  <Link to="/home" className="btn btn-secondary btn-sm">Browse Products</Link>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {activeOrders.map((order) => {
-                    const group = groupOrders.find(g => g.id === order.group_order_id);
-                    // Determine custom badges
-                    const sharesLeft = group ? group.shares_needed - group.shares_purchased : 0;
-                    let badgeText = 'Just Started';
-                    let badgeBg = '#E0F2FE';
-                    let badgeColor = '#0284C7';
-                    
-                    if (sharesLeft === 1) {
-                      badgeText = 'Almost Complete';
-                      badgeBg = '#FFE4E6';
-                      badgeColor = '#E11D48';
-                    } else if (sharesLeft === 2) {
-                      badgeText = 'In Progress';
-                      badgeBg = '#FEF3C7';
-                      badgeColor = '#D97706';
-                    }
-                    
-                    return (
-                      <div 
-                        key={order.id}
-                        style={{ 
-                          backgroundColor: '#FFFFFF', 
-                          borderRadius: '20px', 
-                          border: '1px solid var(--border-color)', 
-                          padding: '24px',
-                          boxShadow: '0 2px 8px rgba(30, 64, 175, 0.03)'
-                        }}
+              {/* SEARCH & ACTION HEADER BAR (Exact match to reference images) */}
+              <div style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: '20px',
+                border: '1px solid #DBEAFE',
+                padding: '16px 20px',
+                marginBottom: '20px',
+                boxShadow: '0 4px 14px rgba(30, 64, 175, 0.03)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  {/* Search Box */}
+                  <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+                    <Search size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+                    <input
+                      type="text"
+                      placeholder="Order ID, product name..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px 36px 10px 42px',
+                        borderRadius: '30px',
+                        border: '1px solid #CBD5E1',
+                        fontSize: '13px',
+                        outline: 'none',
+                        backgroundColor: '#F8FAFC'
+                      }}
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery('')}
+                        style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', cursor: 'pointer', color: '#94A3B8' }}
                       >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
-                          <div>
-                            <span style={{ fontSize: '11px', color: '#2563EB', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '2px' }}>
-                              ORDER #: {order.payment_reference || order.id}
-                            </span>
-                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                              Trader: {order.trader_name}
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-                                <circle cx="12" cy="12" r="12" fill="#2563EB"/>
-                                <path d="M9.5 12.5L11 14L15 10" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                              </svg>
-                            </span>
-                            <h4 style={{ fontSize: '18px', color: '#0F172A', fontWeight: '800', margin: '2px 0 6px 0', fontFamily: 'var(--font-heading)' }}>
-                              {order.product_name}
-                            </h4>
-                            <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                              Your Share: <strong>{order.shares_bought} portions</strong> paid at <strong style={{ color: '#2563EB' }}>{formatCurrency(order.total_price)}</strong>
-                            </span>
-                          </div>
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
 
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                            <span className="badge" style={{ backgroundColor: badgeBg, color: badgeColor, textTransform: 'none', fontWeight: '700' }}>
-                              {badgeText}
-                            </span>
-                            <span className="badge" style={getOrderStatusStyle(order.status)}>
-                              {getOrderStatusText(order.status)}
-                            </span>
+                  {/* Icon Controls */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                      title="Filter"
+                      style={{ width: '38px', height: '38px', borderRadius: '50%', border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#475569' }}
+                    >
+                      <SlidersHorizontal size={16} />
+                    </button>
+                    <button
+                      title="Support & Customer Care"
+                      onClick={() => alert('Kobowise DELSU Campus Support: Call/WhatsApp 08123456789')}
+                      style={{ width: '38px', height: '38px', borderRadius: '50%', border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#2563EB' }}
+                    >
+                      <Headphones size={16} />
+                    </button>
+                    <button
+                      title="Clear Search"
+                      onClick={() => setSearchQuery('')}
+                      style={{ width: '38px', height: '38px', borderRadius: '50%', border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#EF4444' }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* HORIZONTAL LIFECYCLE TABS (Exact match to reference images) */}
+                <div style={{
+                  display: 'flex',
+                  gap: '20px',
+                  marginTop: '16px',
+                  borderTop: '1px solid #F1F5F9',
+                  paddingTop: '12px',
+                  overflowX: 'auto',
+                  scrollbarWidth: 'none'
+                }} className="purchases-subtabs">
+                  {[
+                    { id: 'all', label: 'View all', count: cartItems.length + orders.length },
+                    { id: 'to_pay', label: 'To pay', count: cartItems.length },
+                    { id: 'processing', label: 'Processing', count: orders.filter(o => o.status === 'paid').length },
+                    { id: 'processed', label: 'Processed', count: orders.filter(o => o.status === 'processing' || o.status === 'ready_for_pickup').length },
+                    { id: 'returns', label: 'Returns/refunds', count: orders.filter(o => o.status === 'cancelled').length },
+                    { id: 'review', label: 'Review', count: orders.filter(o => o.status === 'delivered').length },
+                    { id: 'completed', label: 'Completed', count: orders.filter(o => o.status === 'delivered').length }
+                  ].map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setPurchaseTab(tab.id as any)}
+                      style={{
+                        border: 'none',
+                        background: 'none',
+                        padding: '6px 2px',
+                        fontSize: '13px',
+                        fontWeight: purchaseTab === tab.id ? '800' : '600',
+                        color: purchaseTab === tab.id ? '#0F172A' : '#64748B',
+                        borderBottom: purchaseTab === tab.id ? '3px solid #0F172A' : '3px solid transparent',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      {tab.label}
+                      {tab.count > 0 && (
+                        <span style={{
+                          fontSize: '10px',
+                          backgroundColor: purchaseTab === tab.id ? '#0F172A' : '#E2E8F0',
+                          color: purchaseTab === tab.id ? '#FFFFFF' : '#475569',
+                          padding: '1px 6px',
+                          borderRadius: '10px',
+                          fontWeight: '700'
+                        }}>
+                          {tab.count}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* LIST PANEL */}
+              {(() => {
+                const isMatch = (name?: string, ref?: string, trader?: string) => {
+                  if (!searchQuery.trim()) return true;
+                  const q = searchQuery.toLowerCase();
+                  return (
+                    (name && name.toLowerCase().includes(q)) ||
+                    (ref && ref.toLowerCase().includes(q)) ||
+                    (trader && trader.toLowerCase().includes(q))
+                  );
+                };
+
+                const showCart = (purchaseTab === 'to_pay' || purchaseTab === 'all') && cartItems.length > 0;
+                const filteredCart = showCart ? cartItems.filter((c: CartItem) => isMatch(c.product.name, c.product.id, c.product.trader_name)) : [];
+
+                const filteredOrders = orders.filter(o => {
+                  if (!isMatch(o.product_name, o.payment_reference || o.id, o.trader_name)) return false;
+                  if (purchaseTab === 'to_pay') return false;
+                  if (purchaseTab === 'processing') return o.status === 'paid';
+                  if (purchaseTab === 'processed') return o.status === 'processing' || o.status === 'ready_for_pickup';
+                  if (purchaseTab === 'returns') return o.status === 'cancelled';
+                  if (purchaseTab === 'review') return o.status === 'delivered';
+                  if (purchaseTab === 'completed') return o.status === 'delivered';
+                  return true;
+                });
+
+                if (filteredCart.length === 0 && filteredOrders.length === 0) {
+                  return (
+                    <div style={{ textAlign: 'center', padding: '48px 20px', backgroundColor: '#FFFFFF', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                      <ShoppingBag size={44} style={{ color: '#94A3B8', marginBottom: '12px' }} />
+                      <h4 style={{ fontSize: '18px', fontWeight: '800', color: '#0F172A', marginBottom: '6px' }}>No purchases found</h4>
+                      <p style={{ color: '#64748B', fontSize: '13px', marginBottom: '16px' }}>There are no items in this tab.</p>
+                      <Link to="/home" className="btn btn-primary btn-sm">Explore Products</Link>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    {/* CART ITEMS (TO PAY) */}
+                    {filteredCart.map((c: CartItem) => (
+                      <div key={`cart-${c.product.id}`} style={{ backgroundColor: '#FFFFFF', borderRadius: '20px', border: '1px solid #DBEAFE', padding: '20px', boxShadow: '0 4px 12px rgba(30, 64, 175, 0.02)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                          <span style={{ fontSize: '13px', fontWeight: '800', color: '#DC2626' }}>
+                            ⚡ In Cart - Unpaid
+                          </span>
+                          <span style={{ fontSize: '11px', color: '#94A3B8' }}>{new Date().toLocaleDateString()}</span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
+                          <span style={{ backgroundColor: '#FEF08A', color: '#854D0E', fontSize: '10px', padding: '2px 6px', borderRadius: '4px', fontWeight: '800' }}>Choice</span>
+                          <strong style={{ fontSize: '13px', color: '#0F172A' }}>{c.product.trader_name || 'KoboWise Store'} &gt;</strong>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                          <img
+                            src={c.product.image_url}
+                            alt=""
+                            style={{ width: '80px', height: '80px', borderRadius: '12px', objectFit: 'cover', border: '1px solid #E2E8F0' }}
+                            onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60'; }}
+                          />
+                          <div style={{ flex: 1 }}>
+                            <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#0F172A', margin: '0 0 4px 0' }}>{c.product.name}</h4>
+                            <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 6px 0' }}>{c.product.shares_per_person || '4 Basket per share'} • {c.sharesBought} share(s)</p>
+                            <strong style={{ fontSize: '15px', color: '#0F172A' }}>{formatCurrency(c.product.price_per_share)}</strong>
+                          </div>
+                          <span style={{ fontSize: '14px', fontWeight: '700', color: '#64748B' }}>x{c.sharesBought}</span>
+                        </div>
+
+                        <div style={{ backgroundColor: '#F8FAFC', borderRadius: '12px', padding: '10px 14px', marginTop: '14px', border: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <CreditCard size={16} style={{ color: '#2563EB' }} />
+                            <span style={{ fontSize: '12px', color: '#475569', fontWeight: '600' }}>Item saved in cart for instant group join payment</span>
+                          </div>
+                        </div>
+
+                        <div style={{ marginTop: '16px', borderTop: '1px solid #F1F5F9', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                          <div style={{ fontSize: '13px', color: '#0F172A' }}>
+                            Total for {c.sharesBought} item(s): <strong>{formatCurrency(c.product.price_per_share * c.sharesBought)}</strong>
+                          </div>
+                          <div style={{ display: 'flex', gap: '10px' }}>
                             <button
-                              type="button"
-                              onClick={async () => {
-                                if (!user) return;
-                                if (window.confirm(`Are you sure you want to cancel and delete Order #${order.payment_reference || order.id}? This will free up your share and update the group progress bar.`)) {
-                                  await dbService.deleteOrder(order.id, user.id);
-                                  loadProfileData();
-                                }
-                              }}
-                              title="Cancel & Delete Order"
-                              style={{
-                                backgroundColor: '#FEF2F2',
-                                color: '#EF4444',
-                                border: '1px solid #FECACA',
-                                borderRadius: '12px',
-                                padding: '5px 10px',
-                                fontSize: '12px',
-                                fontWeight: '700',
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                marginLeft: '4px'
-                              }}
+                              onClick={() => removeFromCart(c.product.id)}
+                              style={{ border: '1px solid #CBD5E1', borderRadius: '20px', padding: '6px 14px', fontSize: '12px', fontWeight: '700', color: '#64748B', backgroundColor: '#FFFFFF', cursor: 'pointer' }}
                             >
-                              <Trash2 size={13} /> Delete
+                              Remove
+                            </button>
+                            <button
+                              onClick={() => navigate('/checkout')}
+                              style={{ border: '1px solid #DC2626', borderRadius: '20px', padding: '6px 18px', fontSize: '12px', fontWeight: '800', color: '#DC2626', backgroundColor: '#FFFFFF', cursor: 'pointer' }}
+                            >
+                              Pay now
                             </button>
                           </div>
                         </div>
-
-                        {/* Progress Bar of actual group order */}
-                        {group && (
-                          <div style={{ borderTop: '1px dashed var(--border-color)', paddingTop: '16px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                              <span>Split Progress</span>
-                              <span style={{ color: '#2563EB' }}>{group.shares_purchased}/{group.shares_needed} joined</span>
-                            </div>
-                            <ProgressBar purchased={group.shares_purchased} needed={group.shares_needed} />
-                          </div>
-                        )}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
+                    ))}
 
-          {/* TAB 2: ORDER HISTORY */}
-          {activeTab === 'orders' && (
-            <div>
-              {completedOrdersList.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px 20px', backgroundColor: '#FFFFFF', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
-                  <ShoppingBag size={40} style={{ color: 'var(--text-muted)', marginBottom: '12px' }} />
-                  <p style={{ color: 'var(--text-secondary)' }}>No completed orders on your invoice history.</p>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {completedOrdersList.map((order) => (
-                    <div 
-                      key={order.id}
-                      style={{ 
-                        backgroundColor: '#FFFFFF', 
-                        borderRadius: '20px', 
-                        border: '1px solid var(--border-color)', 
-                        padding: '20px',
-                        boxShadow: '0 2px 8px rgba(30, 64, 175, 0.03)'
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                        <div>
-                          <span style={{ fontSize: '11px', color: '#2563EB', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '2px' }}>
-                            ORDER #: {order.payment_reference || order.id}
-                          </span>
-                          <h4 style={{ fontSize: '16px', color: '#0F172A', fontWeight: '800', margin: '2px 0 4px 0', fontFamily: 'var(--font-heading)' }}>
-                            {order.product_name}
-                          </h4>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                            <span>Shares Bought: <strong>{order.shares_bought} shares</strong> ({formatCurrency(order.total_price)})</span>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#2563EB', fontWeight: '600', marginTop: '4px' }}>
-                              <MapPin size={13} />
-                              Pickup: {order.pickup_location}
+                    {/* PAID & PROCESSED ORDERS */}
+                    {filteredOrders.map(order => {
+                      const group = groupOrders.find(g => g.id === order.group_order_id);
+                      let statusBannerText = 'Awaiting delivery';
+                      if (order.status === 'paid') statusBannerText = 'Processing Trader Acceptance';
+                      if (order.status === 'ready_for_pickup') statusBannerText = 'Ready for Pickup';
+                      if (order.status === 'delivered') statusBannerText = 'Delivered & Received';
+                      if (order.status === 'cancelled') statusBannerText = 'Refunded / Cancelled';
+
+                      return (
+                        <div key={order.id} style={{ backgroundColor: '#FFFFFF', borderRadius: '20px', border: '1px solid #DBEAFE', padding: '20px', boxShadow: '0 4px 12px rgba(30, 64, 175, 0.02)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                            <span style={{ fontSize: '14px', fontWeight: '800', color: '#0F172A' }}>
+                              {statusBannerText}
                             </span>
+                            <span style={{ fontSize: '12px', color: '#94A3B8' }}>{new Date(order.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '14px' }}>
+                            <span style={{ backgroundColor: '#FEF08A', color: '#854D0E', fontSize: '10px', padding: '2px 6px', borderRadius: '4px', fontWeight: '800' }}>Choice</span>
+                            <strong style={{ fontSize: '13px', color: '#0F172A' }}>{order.trader_name || 'KoboWise Store'} &gt;</strong>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                            <img
+                              src={order.product_image || '/images/Garri.png'}
+                              alt=""
+                              style={{ width: '80px', height: '80px', borderRadius: '12px', objectFit: 'cover', border: '1px solid #E2E8F0' }}
+                              onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60'; }}
+                            />
+                            <div style={{ flex: 1 }}>
+                              <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#0F172A', margin: '0 0 4px 0' }}>{order.product_name}</h4>
+                              <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 6px 0' }}>
+                                {order.portion_size || '4 Basket per share'} • {order.shares_bought} share(s)
+                              </p>
+                              <strong style={{ fontSize: '15px', color: '#0F172A' }}>{formatCurrency(order.unit_price || (order.total_price / (order.shares_bought || 1)))}</strong>
+                            </div>
+                            <span style={{ fontSize: '14px', fontWeight: '700', color: '#64748B' }}>x{order.shares_bought}</span>
+                          </div>
+
+                          {group && group.status === 'pending' && (
+                            <div style={{ backgroundColor: '#EFF6FF', borderRadius: '12px', padding: '12px 14px', marginTop: '14px', border: '1px solid #DBEAFE' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '700', color: '#1E3A8A', marginBottom: '4px' }}>
+                                <span>Group Buyers Split Progress</span>
+                                <span>{group.shares_purchased}/{group.shares_needed} joined</span>
+                              </div>
+                              <ProgressBar purchased={group.shares_purchased} needed={group.shares_needed} />
+                            </div>
+                          )}
+
+                          <div 
+                            onClick={() => setTrackingModalOrder(order)}
+                            style={{ backgroundColor: '#F8FAFC', borderRadius: '12px', padding: '12px 16px', marginTop: '14px', border: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <Truck size={18} style={{ color: '#2563EB' }} />
+                              <div>
+                                <span style={{ fontSize: '13px', fontWeight: '700', color: '#0F172A', display: 'block' }}>
+                                  Click to check tracking details &gt;
+                                </span>
+                                <span style={{ fontSize: '11px', color: '#64748B' }}>
+                                  Estimated delivery / Pickup: {order.pickup_location || order.estimated_delivery || 'DELSU Site II Gate Shop 1B'}
+                                </span>
+                              </div>
+                            </div>
+                            <ChevronRight size={16} style={{ color: '#94A3B8' }} />
+                          </div>
+
+                          <div style={{ marginTop: '16px', borderTop: '1px solid #F1F5F9', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                            <div style={{ fontSize: '13px', color: '#0F172A' }}>
+                              Total for {order.shares_bought} item(s): <strong>{formatCurrency(order.total_price)}</strong>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                              <button
+                                onClick={() => setTrackingModalOrder(order)}
+                                style={{ border: '1px solid #94A3B8', borderRadius: '20px', padding: '6px 16px', fontSize: '12px', fontWeight: '700', color: '#334155', backgroundColor: '#FFFFFF', cursor: 'pointer' }}
+                              >
+                                Track status
+                              </button>
+
+                              {(order.status === 'processing' || order.status === 'ready_for_pickup' || order.status === 'paid') && (
+                                <button
+                                  onClick={async () => {
+                                    setActionLoadingId(order.id);
+                                    await dbService.updateOrderStatus(order.id, 'delivered');
+                                    await loadProfileData();
+                                    setActionLoadingId(null);
+                                  }}
+                                  disabled={actionLoadingId === order.id}
+                                  style={{ border: '1px solid #DC2626', borderRadius: '20px', padding: '6px 18px', fontSize: '12px', fontWeight: '800', color: '#DC2626', backgroundColor: '#FFFFFF', cursor: 'pointer' }}
+                                >
+                                  {actionLoadingId === order.id ? 'Updating...' : 'Confirm received'}
+                                </button>
+                              )}
+
+                              {order.status === 'delivered' && (
+                                <Link
+                                  to={`/product/${order.product_id || 'prod-1'}`}
+                                  style={{ border: '1px solid #DC2626', borderRadius: '20px', padding: '6px 18px', fontSize: '12px', fontWeight: '800', color: '#DC2626', backgroundColor: '#FFFFFF', cursor: 'pointer', textDecoration: 'none' }}
+                                >
+                                  Leave review
+                                </Link>
+                              )}
+
+                              <button
+                                onClick={async () => {
+                                  if (!user) return;
+                                  if (window.confirm(`Delete Order #${order.payment_reference || order.id} from your list?`)) {
+                                    await dbService.deleteOrder(order.id, user.id);
+                                    loadProfileData();
+                                  }
+                                }}
+                                style={{ border: '1px solid #FECACA', borderRadius: '20px', padding: '6px 12px', fontSize: '12px', fontWeight: '700', color: '#EF4444', backgroundColor: '#FEF2F2', cursor: 'pointer' }}
+                              >
+                                Delete
+                              </button>
+                            </div>
                           </div>
                         </div>
-
-                        <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end' }}>
-                          <span className="badge" style={getOrderStatusStyle(order.status)}>
-                            {getOrderStatusText(order.status)}
-                          </span>
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                            {new Date(order.created_at).toLocaleDateString()}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (!user) return;
-                              if (window.confirm(`Are you sure you want to delete Order #${order.payment_reference || order.id}?`)) {
-                                await dbService.deleteOrder(order.id, user.id);
-                                loadProfileData();
-                              }
-                            }}
-                            title="Delete Order"
-                            style={{
-                              backgroundColor: '#FEF2F2',
-                              color: '#EF4444',
-                              border: '1px solid #FECACA',
-                              borderRadius: '10px',
-                              padding: '4px 8px',
-                              fontSize: '11px',
-                              fontWeight: '700',
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              marginTop: '4px'
-                            }}
-                          >
-                            <Trash2 size={12} /> Delete
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -601,6 +719,68 @@ export const Profile: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* TRACKING STATUS MODAL */}
+        {trackingModalOrder && (
+          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '20px' }}>
+            <div style={{ backgroundColor: '#FFFFFF', borderRadius: '24px', maxWidth: '480px', width: '100%', padding: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.2)', position: 'relative' }}>
+              <button
+                onClick={() => setTrackingModalOrder(null)}
+                style={{ position: 'absolute', top: '16px', right: '16px', border: 'none', background: 'none', cursor: 'pointer', color: '#94A3B8' }}
+              >
+                <X size={20} />
+              </button>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                <Truck size={22} style={{ color: '#2563EB' }} />
+                <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0F172A', margin: 0 }}>Order Tracking Details</h3>
+              </div>
+
+              <div style={{ backgroundColor: '#F8FAFC', padding: '14px', borderRadius: '12px', border: '1px solid #E2E8F0', marginBottom: '20px' }}>
+                <div style={{ fontSize: '12px', color: '#64748B' }}>Order Ref: <strong style={{ color: '#2563EB' }}>{trackingModalOrder.payment_reference || trackingModalOrder.id}</strong></div>
+                <div style={{ fontSize: '14px', fontWeight: '800', color: '#0F172A', marginTop: '2px' }}>{trackingModalOrder.product_name}</div>
+                <div style={{ fontSize: '12px', color: '#475569', marginTop: '4px' }}>Fulfillment Center: {trackingModalOrder.pickup_location || 'DELSU Site II Gate Shop 1B'}</div>
+              </div>
+
+              {/* Timeline Steps */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', borderLeft: '2px solid #DBEAFE', paddingLeft: '20px', marginLeft: '10px' }}>
+                <div style={{ position: 'relative' }}>
+                  <div style={{ position: 'absolute', left: '-27px', top: '2px', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#2563EB' }} />
+                  <span style={{ fontSize: '13px', fontWeight: '800', color: '#0F172A', display: 'block' }}>Order Joined & Paid</span>
+                  <span style={{ fontSize: '11px', color: '#64748B' }}>Payment confirmed via {trackingModalOrder.payment_method || 'KoboWise Escrow Wallet'}</span>
+                </div>
+
+                <div style={{ position: 'relative' }}>
+                  <div style={{ position: 'absolute', left: '-27px', top: '2px', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: trackingModalOrder.status !== 'paid' ? '#2563EB' : '#CBD5E1' }} />
+                  <span style={{ fontSize: '13px', fontWeight: '800', color: trackingModalOrder.status !== 'paid' ? '#0F172A' : '#64748B', display: 'block' }}>Trader Accepted & Processing</span>
+                  <span style={{ fontSize: '11px', color: '#64748B' }}>{trackingModalOrder.trader_name || 'KoboWise Store'} has accepted the bulk order</span>
+                </div>
+
+                <div style={{ position: 'relative' }}>
+                  <div style={{ position: 'absolute', left: '-27px', top: '2px', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: (trackingModalOrder.status === 'ready_for_pickup' || trackingModalOrder.status === 'delivered') ? '#2563EB' : '#CBD5E1' }} />
+                  <span style={{ fontSize: '13px', fontWeight: '800', color: (trackingModalOrder.status === 'ready_for_pickup' || trackingModalOrder.status === 'delivered') ? '#0F172A' : '#64748B', display: 'block' }}>Awaiting Delivery / Pickup</span>
+                  <span style={{ fontSize: '11px', color: '#64748B' }}>Package ready at {trackingModalOrder.pickup_location || 'DELSU Site II Gate'}</span>
+                </div>
+
+                <div style={{ position: 'relative' }}>
+                  <div style={{ position: 'absolute', left: '-27px', top: '2px', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: trackingModalOrder.status === 'delivered' ? '#10B981' : '#CBD5E1' }} />
+                  <span style={{ fontSize: '13px', fontWeight: '800', color: trackingModalOrder.status === 'delivered' ? '#10B981' : '#64748B', display: 'block' }}>Order Received & Confirmed</span>
+                  <span style={{ fontSize: '11px', color: '#64748B' }}>{trackingModalOrder.status === 'delivered' ? 'Completed & Confirmed' : 'Pending student confirmation'}</span>
+                </div>
+              </div>
+
+              <div style={{ marginTop: '24px', textAlign: 'right' }}>
+                <button
+                  onClick={() => setTrackingModalOrder(null)}
+                  className="btn btn-primary btn-sm"
+                  style={{ borderRadius: '20px' }}
+                >
+                  Close Tracking
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

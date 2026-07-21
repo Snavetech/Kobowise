@@ -84,7 +84,11 @@ export interface Order {
   payment_method: string;
   payment_reference: string;
   created_at: string;
+  product_id?: string;
   product_name?: string;
+  product_image?: string;
+  portion_size?: string;
+  unit_price?: number;
   trader_name?: string;
   buyer_name?: string;
   estimated_delivery?: string;
@@ -1333,10 +1337,14 @@ export const dbService = {
           const prod = grp ? products.find(p => p.id === grp.product_id) : null;
           return {
             ...o,
+            product_id: prod ? prod.id : '',
             product_name: prod ? prod.name : 'Unknown Product',
-            trader_name: prod ? prod.trader_name : 'Unknown Trader',
-            estimated_delivery: prod ? prod.estimated_delivery : '',
-            pickup_location: prod ? prod.pickup_location : ''
+            product_image: prod ? prod.image_url : '',
+            portion_size: prod ? prod.shares_per_person : '',
+            unit_price: prod ? prod.price_per_share : 0,
+            trader_name: prod ? prod.trader_name : 'KoboWise Main Market Store',
+            estimated_delivery: prod ? prod.estimated_delivery : 'Same Day Delivery',
+            pickup_location: prod ? prod.pickup_location : 'DELSU Site II Gate'
           };
         })
         .sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -1354,10 +1362,14 @@ export const dbService = {
       const prod = o.group_orders?.products;
       return {
         ...o,
+        product_id: prod?.id || '',
         product_name: prod?.name || 'Unknown Product',
-        trader_name: prod?.profiles?.full_name || 'Unknown Trader',
-        estimated_delivery: prod?.estimated_delivery || '',
-        pickup_location: prod?.pickup_location || ''
+        product_image: prod?.image_url || '',
+        portion_size: prod?.shares_per_person || '',
+        unit_price: prod?.price_per_share || 0,
+        trader_name: prod?.profiles?.full_name || 'KoboWise Main Market Store',
+        estimated_delivery: prod?.estimated_delivery || 'Same Day Delivery',
+        pickup_location: prod?.pickup_location || 'DELSU Site II Gate'
       };
     });
   },
