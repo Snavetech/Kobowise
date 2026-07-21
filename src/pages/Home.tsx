@@ -7,6 +7,7 @@ import { ProductCard } from '../components/ProductCard';
 import { ToastContainer, type ToastMessage } from '../components/Toast';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { SkeletonLoader } from '../components/SkeletonLoader';
+import { LoadingSpinner } from '../components/LoadingSpinner';
 import { 
   Search, 
   Flame, 
@@ -754,12 +755,9 @@ export const Home: React.FC = () => {
       <main className="container" style={{ display: 'flex', flexDirection: 'column', gap: '48px', marginTop: '20px' }}>
         
         {loading ? (
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
-              <Clock size={22} style={{ color: '#2563EB' }} />
-              <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#0F172A' }}>Loading Active Group Deals...</h2>
-            </div>
-            <div className="grid-responsive">
+          <div style={{ padding: '40px 0' }}>
+            <LoadingSpinner text="Loading Active Group Deals..." />
+            <div className="grid-responsive" style={{ marginTop: '24px' }}>
               <SkeletonLoader type="card" count={4} />
             </div>
           </div>

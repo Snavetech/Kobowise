@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { dbService, mockRealtime } from '../supabase';
 import type { Product, Category, Order, GroupOrder } from '../supabase';
 import { ToastContainer, type ToastMessage } from '../components/Toast';
+import { LoadingSpinner } from '../components/LoadingSpinner';
 import { 
   Plus, 
   Edit, 
@@ -256,11 +257,7 @@ export const TraderDashboard: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="container" style={{ padding: '80px 0', textAlign: 'center' }}>
-        <div style={{ fontSize: '18px', color: 'var(--text-secondary)' }}>Loading trader dashboard...</div>
-      </div>
-    );
+    return <LoadingSpinner text="Loading trader dashboard..." fullPage />;
   }
 
   return (

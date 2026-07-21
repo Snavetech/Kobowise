@@ -7,6 +7,7 @@ import type { Product, GroupOrder, Review } from '../supabase';
 import { ProgressBar } from '../components/ProgressBar';
 import { ToastContainer, type ToastMessage } from '../components/Toast';
 import { ProductCard } from '../components/ProductCard';
+import { LoadingSpinner } from '../components/LoadingSpinner';
 import { 
   Truck, 
   ShieldCheck, 
@@ -170,11 +171,7 @@ export const ProductDetails: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="container" style={{ padding: '80px 0', textAlign: 'center' }}>
-        <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--text-secondary)' }}>Loading product details...</div>
-      </div>
-    );
+    return <LoadingSpinner text="Loading product details..." fullPage />;
   }
 
   if (!product) {
