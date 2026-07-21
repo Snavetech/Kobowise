@@ -17,7 +17,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { cartItems } = useCart();
+  const { cartItems, addToCart } = useCart();
   const existingCartItem = cartItems.find(item => item.product.id === product.id);
   const isAlreadyInCart = !!existingCartItem;
   const [isWished, setIsWished] = useState(false);
@@ -368,7 +368,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/product/${product.id}`);
+                addToCart(product, 1);
               }}
               className="btn-push"
               style={{

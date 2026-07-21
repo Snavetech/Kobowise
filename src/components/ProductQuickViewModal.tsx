@@ -81,10 +81,9 @@ export const ProductQuickViewModal: React.FC<ProductQuickViewModalProps> = ({
   const handleAddToCartAndCheckout = () => {
     addToCart(product, sharesCount);
     if (addToast) {
-      addToast(`Added ${sharesCount} ${sharesCount === 1 ? 'share' : 'shares'} of "${product.name}" to cart!`, 'success');
+      addToast(`Added ${sharesCount} ${sharesCount === 1 ? 'share' : 'shares'} of "${product.name}" to cart! Payments can be made on the cart page.`, 'success');
     }
     onClose();
-    navigate('/cart');
   };
 
   const handleAddReview = async (e: React.FormEvent) => {

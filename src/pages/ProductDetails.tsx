@@ -6,6 +6,7 @@ import { dbService, mockRealtime } from '../supabase';
 import type { Product, GroupOrder, Review } from '../supabase';
 import { ProgressBar } from '../components/ProgressBar';
 import { ToastContainer, type ToastMessage } from '../components/Toast';
+import { ProductCard } from '../components/ProductCard';
 import { 
   Truck, 
   ShieldCheck, 
@@ -20,7 +21,8 @@ import {
   User,
   MapPin,
   Package,
-  Sparkles
+  Sparkles,
+  ShoppingBag
 } from 'lucide-react';
 
 export const ProductDetails: React.FC = () => {
@@ -36,6 +38,10 @@ export const ProductDetails: React.FC = () => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isWished, setIsWished] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Related products & Group orders for recommendations
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [allGroupOrders, setAllGroupOrders] = useState<GroupOrder[]>([]);
 
   // Selector states
   const [sharesCount, setSharesCount] = useState(1);
@@ -70,8 +76,15 @@ export const ProductDetails: React.FC = () => {
     if (prod) {
       setProduct(prod);
       const groups = await dbService.getGroupOrders();
+      setAllGroupOrders(groups);
       const currentGroup = groups.find(g => g.product_id === prod.id && g.status === 'pending') || null;
       setGroupOrder(currentGroup);
+
+      const allProds = await dbService.getProducts();
+      const related = allProds
+        .filter(p => p.id !== prod.id)
+        .sort((a, _b) => (a.category_id === prod.category_id ? -1 : 1));
+      setRelatedProducts(related.slice(0, 8));
 
       const revs = await dbService.getReviews(prod.id);
       setReviews(revs);
@@ -123,7 +136,7 @@ export const ProductDetails: React.FC = () => {
   const handleAddToCart = () => {
     if (!product) return;
     addToCart(product, sharesCount);
-    navigate('/cart');
+    addToast(`Added ${sharesCount} ${sharesCount === 1 ? 'share' : 'shares'} of "${product.name}" to cart! Payments can be made on the cart page.`, 'success');
   };
 
   const handleAddReview = async (e: React.FormEvent) => {
@@ -787,6 +800,56 @@ export const ProductDetails: React.FC = () => {
 
           </div>
         </section>
+
+        {/* OTHER PRODUCTS TO SHOP (AliExpress / Marketplace Related Items) */}
+        {relatedProducts.length > 0 && (
+          <section style={{ marginTop: '56px', borderTop: '1px solid var(--border-color)', paddingTop: '40px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ShoppingBag size={22} style={{ color: '#2563EB' }} />
+                  <h3 style={{ fontSize: '22px', fontWeight: '800', color: '#0F172A', fontFamily: 'var(--font-heading)' }}>
+                    Other Products to Shop
+                  </h3>
+                </div>
+                <p style={{ fontSize: '13px', color: '#64748B', margin: '4px 0 0 0' }}>
+                  Explore more group split deals & campus marketplace offers
+                </p>
+              </div>
+              <Link 
+                to="/home?tab=browse" 
+                style={{ 
+                  color: '#2563EB', 
+                  fontSize: '13px', 
+                  fontWeight: '700', 
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                View all products &rarr;
+              </Link>
+            </div>
+
+            <div className="grid-responsive" style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+              gap: '20px'
+            }}>
+              {relatedProducts.map(relProd => {
+                const relGroup = allGroupOrders.find(g => g.product_id === relProd.id && g.status === 'pending');
+                return (
+                  <ProductCard 
+                    key={relProd.id} 
+                    product={relProd} 
+                    groupOrder={relGroup} 
+                  />
+                );
+              })}
+            </div>
+          </section>
+        )}
 
       </div>
 

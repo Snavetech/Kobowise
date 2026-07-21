@@ -772,8 +772,34 @@ if (isDemoMode) {
           status: isComplete ? 'completed' as const : 'pending' as const
         };
 
-        // Trigger notifications if complete
+        // Trigger notifications and update inventory/restart group buy if complete
         if (isComplete) {
+          // 1. Decrement product stock quantity in local storage
+          const prods = getLocal<Product[]>('products', MOCK_PRODUCTS);
+          const pIdx = prods.findIndex(p => p.id === product.id);
+          if (pIdx !== -1) {
+            const currentStock = prods[pIdx].stock_quantity ?? 30;
+            const newStock = Math.max(0, currentStock - 1);
+            prods[pIdx].stock_quantity = newStock;
+            if (newStock === 0) {
+              prods[pIdx].status = 'completed';
+            }
+            setLocal('products', prods);
+
+            // 2. If trader still has stock remaining (>0), start a NEW group buy pool automatically!
+            if (newStock > 0) {
+              const newGroupOrder: GroupOrder = {
+                id: `group-${Date.now()}-auto`,
+                product_id: product.id,
+                shares_purchased: 0,
+                shares_needed: product.total_shares,
+                status: 'pending',
+                created_at: new Date().toISOString()
+              };
+              updatedGroups.push(newGroupOrder);
+            }
+          }
+
           // Notify trader
           const notifications = getLocal<Notification[]>('notifications', []);
           notifications.push({
@@ -958,8 +984,32 @@ export const dbService = {
   // --- GROUP BUY LOGIC & JOINING ---
   async getGroupOrders(): Promise<GroupOrder[]> {
     const getFallbackGroupOrders = async () => {
-      const groups = getLocal<GroupOrder[]>('group_orders', MOCK_GROUP_ORDERS);
+      let groups = getLocal<GroupOrder[]>('group_orders', MOCK_GROUP_ORDERS);
       const products = await this.getProducts();
+
+      // Ensure active products with remaining stock (>0) have a pending group order pool
+      let hasNewGroup = false;
+      products.forEach(p => {
+        if (p.status === 'active' && (p.stock_quantity ?? 30) > 0) {
+          const hasPending = groups.some(g => g.product_id === p.id && g.status === 'pending');
+          if (!hasPending) {
+            groups.push({
+              id: `group-${Date.now()}-${p.id}`,
+              product_id: p.id,
+              shares_purchased: 0,
+              shares_needed: p.total_shares,
+              status: 'pending',
+              created_at: new Date().toISOString()
+            });
+            hasNewGroup = true;
+          }
+        }
+      });
+
+      if (hasNewGroup) {
+        setLocal('group_orders', groups);
+      }
+
       return groups.map(g => ({
         ...g,
         product: products.find(p => p.id === g.product_id)
@@ -1026,6 +1076,32 @@ export const dbService = {
       group.shares_purchased = Math.min(newPurchased, group.shares_needed);
       if (isComplete) {
         group.status = 'completed';
+
+        // Decrement trader inventory (stock_quantity) for this product
+        const prods = getLocal<Product[]>('products', MOCK_PRODUCTS);
+        const pIdx = prods.findIndex(p => p.id === productId);
+        if (pIdx !== -1) {
+          const currentStock = prods[pIdx].stock_quantity ?? 30;
+          const newStock = Math.max(0, currentStock - 1);
+          prods[pIdx].stock_quantity = newStock;
+          if (newStock === 0) {
+            prods[pIdx].status = 'completed';
+          }
+          setLocal('products', prods);
+
+          // If trader still has inventory (>0 stock), start a NEW group order!
+          if (newStock > 0) {
+            const nextGroupOrder: GroupOrder = {
+              id: `group-${Date.now()}-next`,
+              product_id: productId,
+              shares_purchased: 0,
+              shares_needed: product.total_shares,
+              status: 'pending',
+              created_at: new Date().toISOString()
+            };
+            groupOrders.push(nextGroupOrder);
+          }
+        }
       }
 
       setLocal('group_orders', groupOrders);
@@ -1203,6 +1279,30 @@ export const dbService = {
       });
 
     if (isCompleted) {
+      // Decrement stock_quantity in Supabase products table
+      const currentStock = product.stock_quantity ?? 30;
+      const newStock = Math.max(0, currentStock - 1);
+
+      await supabase!
+        .from('products')
+        .update({
+          stock_quantity: newStock,
+          status: newStock === 0 ? 'completed' : 'active'
+        })
+        .eq('id', productId);
+
+      // If newStock > 0, insert a NEW pending group_order to start again from Kobowise trader inventory
+      if (newStock > 0) {
+        await supabase!
+          .from('group_orders')
+          .insert({
+            product_id: productId,
+            shares_needed: product.total_shares,
+            shares_purchased: 0,
+            status: 'pending'
+          });
+      }
+
       await supabase!
         .from('notifications')
         .insert({
