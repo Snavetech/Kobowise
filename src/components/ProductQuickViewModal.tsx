@@ -62,10 +62,11 @@ export const ProductQuickViewModal: React.FC<ProductQuickViewModalProps> = ({
 
   if (!product) return null;
 
-  const confirmedShares = groupOrder ? groupOrder.shares_purchased : 0;
+  const activeGroup = (groupOrder && groupOrder.status === 'pending') ? groupOrder : null;
+  const confirmedShares = activeGroup ? activeGroup.shares_purchased : 0;
   const existingCartItem = cartItems.find(item => item.product.id === product.id);
   const isAlreadyInCart = !!existingCartItem;
-  const cartShares = existingCartItem ? existingCartItem.sharesBought : 0;
+  const cartShares = (existingCartItem && confirmedShares > 0) ? existingCartItem.sharesBought : 0;
   const sharesPurchased = Math.min(product.total_shares, confirmedShares + cartShares);
   const sharesLeft = Math.max(0, product.total_shares - sharesPurchased);
   const maxAvailableShares = Math.max(1, product.total_shares);

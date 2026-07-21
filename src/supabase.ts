@@ -764,7 +764,7 @@ if (isDemoMode) {
     const simulatedBuyerName = SIMULATED_BUYERS[Math.floor(Math.random() * SIMULATED_BUYERS.length)];
     const sharesToBuy = 1;
 
-    // Update group order
+    const newGroupsToAdd: GroupOrder[] = [];
     const updatedGroups = groupOrders.map(g => {
       if (g.id === randomGroup.id) {
         const newPurchased = g.shares_purchased + sharesToBuy;
@@ -792,15 +792,14 @@ if (isDemoMode) {
 
             // 2. If trader still has stock remaining (>0), start a NEW group buy pool automatically!
             if (newStock > 0) {
-              const newGroupOrder: GroupOrder = {
+              newGroupsToAdd.push({
                 id: `group-${Date.now()}-auto`,
                 product_id: product.id,
                 shares_purchased: 0,
-                shares_needed: product.total_shares,
+                shares_needed: product.total_shares || 4,
                 status: 'pending',
                 created_at: new Date().toISOString()
-              };
-              updatedGroups.push(newGroupOrder);
+              });
             }
           }
 
@@ -823,8 +822,9 @@ if (isDemoMode) {
       return g;
     });
 
-    setLocal('group_orders', updatedGroups);
-    mockRealtime.emit('groups_updated', updatedGroups);
+    const finalGroupOrders = [...updatedGroups, ...newGroupsToAdd];
+    setLocal('group_orders', finalGroupOrders);
+    mockRealtime.emit('groups_updated', finalGroupOrders);
 
     // Notify user of activity
     mockRealtime.emit('toast', {

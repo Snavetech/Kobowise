@@ -41,8 +41,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     const added = await dbService.toggleWishlist(user.id, product.id);
     setIsWished(added);
   };
-  const confirmedShares = groupOrder ? groupOrder.shares_purchased : 0;
-  const cartShares = existingCartItem ? existingCartItem.sharesBought : 0;
+  const activeGroup = (groupOrder && groupOrder.status === 'pending') ? groupOrder : null;
+  const confirmedShares = activeGroup ? activeGroup.shares_purchased : 0;
+  const cartShares = (existingCartItem && confirmedShares > 0) ? existingCartItem.sharesBought : 0;
   const sharesPurchased = Math.min(product.total_shares, confirmedShares + cartShares);
   const totalShares = product.total_shares;
   const sharesLeft = Math.max(0, totalShares - sharesPurchased);

@@ -187,9 +187,10 @@ export const ProductDetails: React.FC = () => {
     );
   }
 
+  const activeGroup = (groupOrder && groupOrder.status === 'pending') ? groupOrder : null;
   const existingInCart = cartItems.find(item => item.product.id === product.id);
-  const cartShares = existingInCart ? existingInCart.sharesBought : 0;
-  const confirmedShares = groupOrder ? groupOrder.shares_purchased : 0;
+  const confirmedShares = activeGroup ? activeGroup.shares_purchased : 0;
+  const cartShares = (existingInCart && confirmedShares > 0) ? existingInCart.sharesBought : 0;
   const sharesPurchased = Math.min(product.total_shares, confirmedShares + cartShares);
   const sharesLeft = Math.max(0, product.total_shares - sharesPurchased);
   
