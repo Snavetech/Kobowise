@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { User, Store, Smartphone, Mail, Lock, BookOpen, Clock, CheckCircle2, Sparkles } from 'lucide-react';
+import { User, Store, Smartphone, Mail, Lock, BookOpen, Clock, CheckCircle2, Sparkles, Eye, EyeOff } from 'lucide-react';
 
 export const SignUp: React.FC = () => {
   const { signUp, user } = useAuth();
@@ -13,11 +13,25 @@ export const SignUp: React.FC = () => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [studentId, setStudentId] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
   const [isWaitlisted, setIsWaitlisted] = useState(false);
+
+  // Password requirements state
+  const reqs = {
+    hasMinLength: password.length >= 8,
+    hasLowerCase: /[a-z]/.test(password),
+    hasUpperCase: /[A-Z]/.test(password),
+    hasNumber: /[0-9]/.test(password),
+    hasSpecialChar: /[^A-Za-z0-9]/.test(password)
+  };
+
+  const isPasswordValid = reqs.hasMinLength && reqs.hasLowerCase && reqs.hasUpperCase && reqs.hasNumber && reqs.hasSpecialChar;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,6 +43,14 @@ export const SignUp: React.FC = () => {
     if (role === 'buyer') {
       if (!password.trim()) {
         setErrorMsg('Please enter a password.');
+        return;
+      }
+      if (!isPasswordValid) {
+        setErrorMsg('Password does not meet all security requirements.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setErrorMsg('Passwords do not match. Please check and try again.');
         return;
       }
       if (!studentId.trim()) {
@@ -555,21 +577,130 @@ export const SignUp: React.FC = () => {
           )}
 
           {role === 'buyer' && (
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Password *</label>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <Lock size={16} style={{ position: 'absolute', left: '14px', color: 'var(--text-muted)' }} />
-                <input 
-                  type="password" 
-                  placeholder="Minimum 6 characters" 
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="form-control"
-                  style={{ paddingLeft: '40px' }}
-                  required
-                />
+            <>
+              {/* PASSWORD FIELD WITH EYE TOGGLE */}
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Password *</label>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <Lock size={16} style={{ position: 'absolute', left: '14px', color: 'var(--text-muted)' }} />
+                  <input 
+                    type={showPassword ? 'text' : 'password'} 
+                    placeholder="Create a strong password" 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="form-control"
+                    style={{ paddingLeft: '40px', paddingRight: '40px' }}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: '#64748B',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '4px'
+                    }}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+
+                {/* PASSWORD REQUIREMENTS STRIKE-OUT LIST */}
+                <div style={{
+                  backgroundColor: '#F8FAFC',
+                  border: '1px solid #E2E8F0',
+                  borderRadius: '12px',
+                  padding: '12px 14px',
+                  marginTop: '8px'
+                }}>
+                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Password Requirements:
+                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {[
+                      { label: 'At least 8 characters long', met: reqs.hasMinLength },
+                      { label: 'Contains a lowercase letter (a-z)', met: reqs.hasLowerCase },
+                      { label: 'Contains a capital letter (A-Z)', met: reqs.hasUpperCase },
+                      { label: 'Contains a number (0-9)', met: reqs.hasNumber },
+                      { label: 'Contains a special character (!@#$%^&*)', met: reqs.hasSpecialChar },
+                    ].map((req, idx) => (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: req.met ? '#16A34A' : '#64748B', transition: 'all 0.2s ease' }}>
+                        {req.met ? (
+                          <CheckCircle2 size={14} style={{ color: '#16A34A', flexShrink: 0 }} />
+                        ) : (
+                          <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#94A3B8', marginLeft: '4px', marginRight: '4px', flexShrink: 0 }} />
+                        )}
+                        <span style={{
+                          textDecoration: req.met ? 'line-through' : 'none',
+                          fontWeight: req.met ? '700' : '500',
+                          opacity: req.met ? 0.85 : 1
+                        }}>
+                          {req.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
+
+              {/* CONFIRM PASSWORD FIELD WITH EYE TOGGLE */}
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Confirm Password *</label>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <Lock size={16} style={{ position: 'absolute', left: '14px', color: 'var(--text-muted)' }} />
+                  <input 
+                    type={showConfirmPassword ? 'text' : 'password'} 
+                    placeholder="Re-enter your password" 
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="form-control"
+                    style={{
+                      paddingLeft: '40px',
+                      paddingRight: '40px',
+                      borderColor: confirmPassword && confirmPassword !== password ? '#EF4444' : undefined
+                    }}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: '#64748B',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '4px'
+                    }}
+                    aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                  >
+                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+                {confirmPassword && confirmPassword !== password && (
+                  <span style={{ fontSize: '11px', color: '#DC2626', fontWeight: '600', marginTop: '4px', display: 'block' }}>
+                    ⚠️ Passwords do not match
+                  </span>
+                )}
+                {confirmPassword && confirmPassword === password && (
+                  <span style={{ fontSize: '11px', color: '#16A34A', fontWeight: '700', marginTop: '4px', display: 'block' }}>
+                    ✓ Passwords match
+                  </span>
+                )}
+              </div>
+            </>
           )}
 
           <button 
