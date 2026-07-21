@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-import { dbService, mockRealtime } from '../supabase';
+import { dbService, mockRealtime, MOCK_PRODUCTS } from '../supabase';
 import type { Product, GroupOrder, Review } from '../supabase';
 import { ProgressBar } from '../components/ProgressBar';
 import { ToastContainer, type ToastMessage } from '../components/Toast';
@@ -81,9 +81,14 @@ export const ProductDetails: React.FC = () => {
       setGroupOrder(currentGroup);
 
       const allProds = await dbService.getProducts();
-      const related = allProds
-        .filter(p => p.id !== prod.id)
-        .sort((a, _b) => (a.category_id === prod.category_id ? -1 : 1));
+      const pool: Product[] = (allProds && allProds.length > 1) ? allProds : MOCK_PRODUCTS;
+      const related = pool
+        .filter((p: Product) => p.id !== prod.id)
+        .sort((a: Product, b: Product) => {
+          if (a.category_id === prod.category_id && b.category_id !== prod.category_id) return -1;
+          if (a.category_id !== prod.category_id && b.category_id === prod.category_id) return 1;
+          return 0;
+        });
       setRelatedProducts(related.slice(0, 8));
 
       const revs = await dbService.getReviews(prod.id);
@@ -284,7 +289,10 @@ export const ProductDetails: React.FC = () => {
               <img 
                 src={product.image_url} 
                 alt={product.name}
-                style={{ width: '100%', height: 'auto', maxHeight: '420px', objectFit: 'cover', display: 'block' }} 
+                style={{ width: '100%', height: 'auto', maxHeight: '420px', objectFit: 'cover', display: 'block' }}
+                onError={(e) => {
+                  e.currentTarget.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60';
+                }} 
               />
               
               {/* Floating Spot Left Badge */}
@@ -330,13 +338,13 @@ export const ProductDetails: React.FC = () => {
             {/* Thumbnail Gallery (Screenshot 5) */}
             <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
               <div style={{ width: '80px', height: '80px', borderRadius: '12px', overflow: 'hidden', border: '2px solid #2563EB', cursor: 'pointer' }}>
-                <img src={product.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img src={product.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60'; }} />
               </div>
               <div style={{ width: '80px', height: '80px', borderRadius: '12px', overflow: 'hidden', border: '1px solid #DBEAFE', cursor: 'pointer', opacity: 0.7 }}>
-                <img src={product.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img src={product.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60'; }} />
               </div>
               <div style={{ width: '80px', height: '80px', borderRadius: '12px', overflow: 'hidden', border: '1px solid #DBEAFE', cursor: 'pointer', opacity: 0.7 }}>
-                <img src={product.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img src={product.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60'; }} />
               </div>
             </div>
 
@@ -376,6 +384,38 @@ export const ProductDetails: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {/* OTHER PRODUCTS TO SHOP (Column 1 Section like AliExpress sample) */}
+            {relatedProducts.length > 0 && (
+              <div style={{ marginTop: '36px', paddingTop: '28px', borderTop: '1px dashed #DBEAFE' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                  <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <ShoppingBag size={18} style={{ color: '#2563EB' }} />
+                    Other Products to Shop
+                  </h3>
+                  <Link to="/home?tab=browse" style={{ fontSize: '12px', color: '#2563EB', fontWeight: '700', textDecoration: 'none' }}>
+                    See all &rarr;
+                  </Link>
+                </div>
+
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', 
+                  gap: '16px' 
+                }}>
+                  {relatedProducts.slice(0, 4).map(relProd => {
+                    const relGroup = allGroupOrders.find(g => g.product_id === relProd.id && g.status === 'pending');
+                    return (
+                      <ProductCard 
+                        key={`col1-${relProd.id}`} 
+                        product={relProd} 
+                        groupOrder={relGroup} 
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Column 2: Booking Box */}

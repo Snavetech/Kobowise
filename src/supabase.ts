@@ -158,7 +158,7 @@ const MOCK_PROFILES: Profile[] = [
   { id: 'buyer-1', role: 'buyer', full_name: 'Omologe Evans', student_id: 'FOS/22/23/287502', phone_number: '08123456789' }
 ];
 
-const MOCK_PRODUCTS: Product[] = [
+export const MOCK_PRODUCTS: Product[] = [
   {
     id: 'prod-1',
     trader_id: 'trader-1',
