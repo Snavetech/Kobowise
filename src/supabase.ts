@@ -994,14 +994,15 @@ export const dbService = {
       // Ensure active products with remaining stock (>0) have a pending group order pool
       let hasNewGroup = false;
       products.forEach(p => {
-        if (p.status === 'active' && (p.stock_quantity ?? 30) > 0) {
+        const remainingStock = p.stock_quantity ?? 30;
+        if (remainingStock > 0) {
           const hasPending = groups.some(g => g.product_id === p.id && g.status === 'pending');
           if (!hasPending) {
             groups.push({
               id: `group-${Date.now()}-${p.id}`,
               product_id: p.id,
               shares_purchased: 0,
-              shares_needed: p.total_shares,
+              shares_needed: p.total_shares || 4,
               status: 'pending',
               created_at: new Date().toISOString()
             });
@@ -1031,10 +1032,38 @@ export const dbService = {
       if (error || !data || data.length === 0) {
         return getFallbackGroupOrders();
       }
-      return data.map(g => ({
+      
+      const products = await this.getProducts();
+      // Ensure any active in-stock product missing a pending pool gets one initialized in Supabase
+      const existingGroups = data.map(g => ({
         ...g,
         product: g.products
       }));
+
+      for (const p of products) {
+        const stock = p.stock_quantity ?? 30;
+        if (stock > 0) {
+          const hasPending = existingGroups.some(g => g.product_id === p.id && g.status === 'pending');
+          if (!hasPending) {
+            const { data: newG } = await supabase!
+              .from('group_orders')
+              .insert({
+                product_id: p.id,
+                shares_needed: p.total_shares || 4,
+                shares_purchased: 0,
+                status: 'pending'
+              })
+              .select('*, products(*)')
+              .single();
+
+            if (newG) {
+              existingGroups.push({ ...newG, product: newG.products });
+            }
+          }
+        }
+      }
+
+      return existingGroups;
     } catch {
       return getFallbackGroupOrders();
     }

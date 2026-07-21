@@ -28,18 +28,26 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [deliveryType, setDeliveryType] = useState<'pickup' | 'delivery'>('pickup');
 
-  // Load cart from session storage on mount
+  // Load cart from local storage on mount
   useEffect(() => {
-    const savedCart = sessionStorage.getItem('kobowise_cart');
-    if (savedCart) {
-      setCartItems(JSON.parse(savedCart));
+    try {
+      const savedCart = localStorage.getItem('kobowise_cart');
+      if (savedCart) {
+        setCartItems(JSON.parse(savedCart));
+      }
+    } catch {
+      // Fallback
     }
   }, []);
 
-  // Save cart to session storage whenever it changes
+  // Save cart to local storage whenever it changes
   const saveCart = (items: CartItem[]) => {
     setCartItems(items);
-    sessionStorage.setItem('kobowise_cart', JSON.stringify(items));
+    try {
+      localStorage.setItem('kobowise_cart', JSON.stringify(items));
+    } catch {
+      // Fallback
+    }
   };
 
   const addToCart = (product: Product, shares: number) => {
