@@ -24,7 +24,8 @@ import {
   X,
   ChevronRight,
   CreditCard,
-  Check
+  Check,
+  AlertTriangle
 } from 'lucide-react';
 
 export const Profile: React.FC = () => {

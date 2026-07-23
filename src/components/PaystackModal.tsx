@@ -9,10 +9,8 @@ import {
   Copy, 
   Check, 
   Clock, 
-  ArrowRight,
   RefreshCw,
   Lock,
-  CheckCircle2,
   AlertCircle
 } from 'lucide-react';
 

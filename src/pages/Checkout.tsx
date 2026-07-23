@@ -8,7 +8,6 @@ import {
   ArrowLeft, 
   Phone, 
   Check, 
-  Copy, 
   Truck, 
   ShieldAlert,
   CreditCard,
@@ -37,7 +36,6 @@ export const Checkout: React.FC = () => {
   const [hostelName, setHostelName] = useState('');
   
   // Payment states
-  const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'bank_transfer'>('paystack');
   const [isPaystackOpen, setIsPaystackOpen] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [lastPaymentRef, setLastPaymentRef] = useState('');
@@ -111,15 +109,7 @@ export const Checkout: React.FC = () => {
     }).format(val);
   };
 
-  const handleCopyAccount = () => {
-    navigator.clipboard.writeText('0123456789');
-    setNoticeModal({
-      isOpen: true,
-      title: 'Account Number Copied',
-      message: 'KoboWise Escrow Account number 0123456789 (Moniepoint MFB) has been copied to your clipboard!',
-      type: 'info'
-    });
-  };
+
 
   if (cartItems.length === 0 && !isSuccess) {
     return (

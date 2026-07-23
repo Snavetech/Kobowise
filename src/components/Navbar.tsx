@@ -18,7 +18,6 @@ import {
   Leaf,
   ChevronDown,
   Heart,
-  Sparkles,
   BookOpen
 } from 'lucide-react';
 
