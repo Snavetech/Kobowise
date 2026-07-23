@@ -120,6 +120,14 @@ export const Home: React.FC = () => {
     }
   };
 
+  const markAllNotificationsRead = async () => {
+    if (user) {
+      await dbService.markAllNotificationsAsRead(user.id);
+      const notifs = await dbService.getNotifications(user.id);
+      setNotifications(notifs);
+    }
+  };
+
   useEffect(() => {
     setLocalSearchText(searchQuery);
   }, [searchQuery]);
@@ -128,7 +136,22 @@ export const Home: React.FC = () => {
 
   // Helper matching product and group order
   const getProductGroup = (productId: string) => {
-    return groupOrders.find(g => g.product_id === productId && g.status === 'pending');
+    const pending = groupOrders.find(g => g.product_id === productId && g.status === 'pending' && g.shares_purchased < g.shares_needed);
+    if (pending) return pending;
+
+    // Fallback guarantee: If product has remaining inventory stock, return a pending group buy pool
+    const prod = products.find(p => p.id === productId);
+    if (prod && (prod.stock_quantity === undefined || prod.stock_quantity > 0)) {
+      return {
+        id: `group-auto-${productId}`,
+        product_id: productId,
+        shares_purchased: 0,
+        shares_needed: prod.total_shares || 4,
+        status: 'pending' as const,
+        created_at: new Date().toISOString()
+      };
+    }
+    return undefined;
   };
 
   const getEffectiveSharesPurchased = (productId: string, totalShares: number) => {
@@ -182,7 +205,8 @@ export const Home: React.FC = () => {
 
   const newlyListedProducts = sortedProducts.filter(p => {
     const effectiveShares = getEffectiveSharesPurchased(p.id, p.total_shares);
-    return effectiveShares === 0;
+    const left = p.total_shares - effectiveShares;
+    return effectiveShares === 0 || left <= 0;
   });
 
   // Groupings by split size (1, 2, 3, 4 buyers)
@@ -1014,12 +1038,33 @@ export const Home: React.FC = () => {
               <Bell size={20} />
               <h3 style={{ color: '#FFFFFF', fontSize: '18px', fontWeight: '700' }}>Notifications</h3>
             </div>
-            <button 
-              onClick={() => setShowNotifDrawer(false)}
-              style={{ background: 'none', border: 'none', color: '#FFFFFF', cursor: 'pointer' }}
-            >
-              <X size={22} />
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              {notifications.some(n => !n.is_read) && (
+                <button 
+                  onClick={markAllNotificationsRead}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.15)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    borderRadius: '12px',
+                    color: '#FFFFFF',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    padding: '4px 10px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title="Mark all notifications as read"
+                >
+                  Mark all read
+                </button>
+              )}
+              <button 
+                onClick={() => setShowNotifDrawer(false)}
+                style={{ background: 'none', border: 'none', color: '#FFFFFF', cursor: 'pointer' }}
+              >
+                <X size={22} />
+              </button>
+            </div>
           </div>
 
           {/* List */}

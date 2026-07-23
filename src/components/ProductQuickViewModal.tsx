@@ -385,7 +385,7 @@ export const ProductQuickViewModal: React.FC<ProductQuickViewModalProps> = ({
                 </span>
                 <span style={{ fontSize: '11px', color: sharesLeft === 1 ? '#D97706' : '#2563EB', fontWeight: '800', backgroundColor: '#FFFFFF', padding: '2px 8px', borderRadius: '6px' }}>
                   <Users size={12} style={{ display: 'inline', marginRight: '4px' }} />
-                  {sharesLeft === 1 ? '1 spot left! 🚨' : `${sharesLeft} spots left`}
+                  {sharesLeft === 1 ? '1 spot left!' : `${sharesLeft} spots left`}
                 </span>
               </div>
 

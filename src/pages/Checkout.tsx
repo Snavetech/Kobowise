@@ -4,29 +4,41 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { dbService, type GroupOrder } from '../supabase';
 import { PaystackModal } from '../components/PaystackModal';
-import { StripeModal } from '../components/StripeModal';
 import { 
   ArrowLeft, 
   Phone, 
   Check, 
   Copy, 
   Truck, 
-  ShieldAlert
+  ShieldAlert,
+  CreditCard,
+  Building2,
+  Smartphone,
+  Landmark,
+  User
 } from 'lucide-react';
 import { ProgressBar } from '../components/ProgressBar';
+import { KoboWiseModal } from '../components/KoboWiseModal';
 
 export const Checkout: React.FC = () => {
   const { cartItems, cartTotal, deliveryType, clearCart } = useCart();
   const { user } = useAuth();
+
+  // Modal notice state
+  const [noticeModal, setNoticeModal] = useState<{ isOpen: boolean; title: string; message: string; type?: 'info' | 'support' | 'success' }>({
+    isOpen: false,
+    title: 'KoboWise Notice',
+    message: '',
+    type: 'info'
+  });
 
   // User input states
   const [phoneNumber, setPhoneNumber] = useState(user?.phone_number || '');
   const [hostelName, setHostelName] = useState('');
   
   // Payment states
-  const [paymentMethod, setPaymentMethod] = useState<'bank_transfer' | 'stripe'>('bank_transfer');
+  const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'bank_transfer'>('paystack');
   const [isPaystackOpen, setIsPaystackOpen] = useState(false);
-  const [isStripeOpen, setIsStripeOpen] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [lastPaymentRef, setLastPaymentRef] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -58,16 +70,11 @@ export const Checkout: React.FC = () => {
       return;
     }
     setErrorMsg('');
-    if (paymentMethod === 'stripe') {
-      setIsStripeOpen(true);
-    } else {
-      setIsPaystackOpen(true);
-    }
+    setIsPaystackOpen(true);
   };
 
   const handlePaymentSuccess = async (reference: string) => {
     setIsPaystackOpen(false);
-    setIsStripeOpen(false);
     setPlacingOrder(true);
     setErrorMsg('');
 
@@ -106,8 +113,12 @@ export const Checkout: React.FC = () => {
 
   const handleCopyAccount = () => {
     navigator.clipboard.writeText('0123456789');
-    // Add small visual alert
-    alert('Account number 0123456789 copied to clipboard!');
+    setNoticeModal({
+      isOpen: true,
+      title: 'Account Number Copied',
+      message: 'KoboWise Escrow Account number 0123456789 (Moniepoint MFB) has been copied to your clipboard!',
+      type: 'info'
+    });
   };
 
   if (cartItems.length === 0 && !isSuccess) {
@@ -210,24 +221,23 @@ export const Checkout: React.FC = () => {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
                     {/* Overlapping avatars */}
                     <div style={{ display: 'flex', alignItems: 'center' }}>
-                      {['👩‍🎓', '👨‍🎓', '🧑‍🎓'].map((avatar, idx) => (
+                      {[1, 2, 3].map((_, idx) => (
                         <div 
                           key={idx}
                           style={{ 
                             width: '28px', 
                             height: '28px', 
                             borderRadius: '50%', 
-                            backgroundColor: '#FFFFFF', 
+                            backgroundColor: '#EFF6FF', 
                             border: '1px solid #DBEAFE', 
                             display: 'flex', 
                             alignItems: 'center', 
                             justifyContent: 'center',
-                            fontSize: '14px',
                             marginLeft: idx > 0 ? '-8px' : '0',
                             zIndex: 10 - idx
                           }}
                         >
-                          {avatar}
+                          <User size={14} style={{ color: '#2563EB' }} />
                         </div>
                       ))}
                       {sharesLeft > 0 && (
@@ -270,7 +280,12 @@ export const Checkout: React.FC = () => {
           {/* CTA Buttons (Image 1) */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <button 
-              onClick={() => alert('Share link copied to clipboard! Send to your DELSU classmates.')}
+              onClick={() => setNoticeModal({
+                isOpen: true,
+                title: 'Share Link Copied',
+                message: 'Group buy invite link copied to clipboard! Send to your DELSU classmates to complete the deal faster.',
+                type: 'info'
+              })}
               className="btn btn-secondary" 
               style={{ 
                 height: '48px', 
@@ -446,7 +461,12 @@ export const Checkout: React.FC = () => {
               <button 
                 type="button" 
                 onClick={() => {
-                  alert('Promo code successfully applied!');
+                  setNoticeModal({
+                    isOpen: true,
+                    title: 'Promo Code Applied',
+                    message: 'KoboWise student discount promo code successfully applied!',
+                    type: 'info'
+                  });
                 }}
                 className="btn btn-outline"
                 style={{ height: '42px', padding: '0 20px', borderRadius: '10px', fontSize: '13px' }}
@@ -521,111 +541,57 @@ export const Checkout: React.FC = () => {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
                 
-                {/* Method 1: Bank Transfer */}
+                {/* Unified Paystack Gateway */}
                 <div style={{ 
-                  border: paymentMethod === 'bank_transfer' ? '2px solid #2563EB' : '1px solid #DBEAFE', 
+                  border: '2px solid #09A5DB', 
                   borderRadius: '16px', 
-                  padding: '16px',
-                  backgroundColor: paymentMethod === 'bank_transfer' ? '#F8FAFC' : '#FFFFFF' 
+                  padding: '20px',
+                  backgroundColor: '#F0F9FF' 
                 }}>
-                  <label style={{ display: 'flex', gap: '10px', alignItems: 'center', cursor: 'pointer', fontWeight: '700', fontSize: '14px', color: '#0F172A' }}>
-                    <input 
-                      type="radio" 
-                      name="payment_method" 
-                      checked={paymentMethod === 'bank_transfer'} 
-                      onChange={() => setPaymentMethod('bank_transfer')}
-                      style={{ accentColor: '#2563EB' }} 
-                    />
-                    Bank Transfer
-                  </label>
-
-                  {/* Bank detail details box */}
-                  {paymentMethod === 'bank_transfer' && (
-                    <div style={{ 
-                      marginTop: '14px', 
-                      padding: '14px', 
-                      borderRadius: '12px', 
-                      backgroundColor: '#FFFFFF', 
-                      border: '1px solid #DBEAFE',
-                      fontSize: '13px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '10px'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: 'var(--text-secondary)' }}>Bank Name</span>
-                        <strong style={{ color: '#0F172A' }}>Access Bank</strong>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ color: 'var(--text-secondary)' }}>Account Number</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <strong style={{ color: '#0F172A', fontSize: '14px', fontFamily: 'monospace' }}>0123456789</strong>
-                          <button type="button" onClick={handleCopyAccount} style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', color: '#2563EB' }}>
-                            <Copy size={14} />
-                          </button>
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: 'var(--text-secondary)' }}>Account Name</span>
-                        <strong style={{ color: '#0F172A' }}>KoboWise Escrow</strong>
-                      </div>
-
-                      {/* Escrow warning banner */}
-                      <div style={{ 
-                        display: 'flex', 
-                        gap: '8px', 
-                        padding: '10px 12px', 
-                        backgroundColor: '#FFF3E0', 
-                        border: '1px solid #FFE0B2', 
-                        borderRadius: '8px', 
-                        color: '#E65100', 
-                        fontSize: '11px', 
-                        fontWeight: '600',
-                        lineHeight: '1.4'
-                      }}>
-                        <ShieldAlert size={16} style={{ flexShrink: 0 }} />
-                        <span>Payment held in escrow until all shares are filled. Full refund if group is incomplete.</span>
-                      </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '15px', fontWeight: '800', color: '#0F172A' }}>Paystack Multi-Channel Gateway</span>
                     </div>
-                  )}
-                </div>
+                    <span style={{ backgroundColor: '#09A5DB', color: '#FFFFFF', fontSize: '10px', fontWeight: '800', padding: '3px 8px', borderRadius: '4px' }}>
+                      SECURED BY PAYSTACK
+                    </span>
+                  </div>
 
-                {/* Method 2: Stripe */}
-                <div style={{ 
-                  border: paymentMethod === 'stripe' ? '2px solid #635BFF' : '1px solid #DBEAFE', 
-                  borderRadius: '16px', 
-                  padding: '16px',
-                  backgroundColor: paymentMethod === 'stripe' ? '#F9F8FF' : '#FFFFFF' 
-                }}>
-                  <label style={{ display: 'flex', gap: '10px', alignItems: 'center', cursor: 'pointer', fontWeight: '700', fontSize: '14px', color: '#0F172A' }}>
-                    <input 
-                      type="radio" 
-                      name="payment_method" 
-                      checked={paymentMethod === 'stripe'} 
-                      onChange={() => setPaymentMethod('stripe')}
-                      style={{ accentColor: '#635BFF' }} 
-                    />
-                    Debit Card (Stripe)
-                  </label>
-                  {paymentMethod === 'stripe' && (
-                    <div style={{ marginTop: '10px', fontSize: '12px', color: '#635BFF', fontWeight: '600' }}>
-                      💳 Secure international card payments powered by Stripe.
+                  <p style={{ fontSize: '12px', color: '#0369A1', fontWeight: '600', margin: '0 0 14px 0' }}>
+                    Choose your preferred payment method on the next screen:
+                  </p>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: '700', color: '#334155', backgroundColor: '#FFFFFF', padding: '10px 12px', borderRadius: '8px', border: '1px solid #BAE6FD' }}>
+                      <CreditCard size={16} style={{ color: '#09A5DB' }} /> Card
                     </div>
-                  )}
-                </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: '700', color: '#334155', backgroundColor: '#FFFFFF', padding: '10px 12px', borderRadius: '8px', border: '1px solid #BAE6FD' }}>
+                      <Building2 size={16} style={{ color: '#09A5DB' }} /> Bank Transfer
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: '700', color: '#334155', backgroundColor: '#FFFFFF', padding: '10px 12px', borderRadius: '8px', border: '1px solid #BAE6FD' }}>
+                      <Smartphone size={16} style={{ color: '#09A5DB' }} /> USSD
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: '700', color: '#334155', backgroundColor: '#FFFFFF', padding: '10px 12px', borderRadius: '8px', border: '1px solid #BAE6FD' }}>
+                      <Landmark size={16} style={{ color: '#09A5DB' }} /> Bank Account
+                    </div>
+                  </div>
 
-                {/* Method 3: USSD (disabled) */}
-                <div style={{ 
-                  border: '1px solid #DBEAFE', 
-                  borderRadius: '16px', 
-                  padding: '16px',
-                  backgroundColor: '#FFFFFF',
-                  opacity: 0.5
-                }}>
-                  <label style={{ display: 'flex', gap: '10px', alignItems: 'center', cursor: 'pointer', fontWeight: '700', fontSize: '14px', color: '#94A3B8' }}>
-                    <input type="radio" name="payment_method" disabled style={{ accentColor: '#2563EB' }} />
-                    USSD (Unavailable)
-                  </label>
+                  <div style={{ 
+                    display: 'flex', 
+                    gap: '8px', 
+                    marginTop: '16px',
+                    padding: '10px 12px', 
+                    backgroundColor: '#FFF3E0', 
+                    border: '1px solid #FFE0B2', 
+                    borderRadius: '8px', 
+                    color: '#E65100', 
+                    fontSize: '11px', 
+                    fontWeight: '600',
+                    lineHeight: '1.4'
+                  }}>
+                    <ShieldAlert size={16} style={{ flexShrink: 0 }} />
+                    <span>Payment held in escrow until all shares are filled. Full refund if group is incomplete.</span>
+                  </div>
                 </div>
 
               </div>
@@ -663,12 +629,12 @@ export const Checkout: React.FC = () => {
         onCancel={() => setIsPaystackOpen(false)}
       />
 
-      <StripeModal 
-        isOpen={isStripeOpen}
-        amount={cartTotal + 150}
-        email={user?.phone_number ? `${user.phone_number}@delsu.edu` : 'buyer@delsu.edu'} 
-        onSuccess={handlePaymentSuccess}
-        onCancel={() => setIsStripeOpen(false)}
+      <KoboWiseModal
+        isOpen={noticeModal.isOpen}
+        onClose={() => setNoticeModal(prev => ({ ...prev, isOpen: false }))}
+        title={noticeModal.title}
+        message={noticeModal.message}
+        type={noticeModal.type}
       />
 
       <style>{`

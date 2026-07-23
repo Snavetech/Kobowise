@@ -78,7 +78,15 @@ export const ProductDetails: React.FC = () => {
       setProduct(prod);
       const groups = await dbService.getGroupOrders();
       setAllGroupOrders(groups);
-      const currentGroup = groups.find(g => g.product_id === prod.id && g.status === 'pending') || null;
+      const pendingGroup = groups.find(g => g.product_id === prod.id && g.status === 'pending');
+      const currentGroup = pendingGroup || ((prod.stock_quantity === undefined || prod.stock_quantity > 0) ? {
+        id: `group-auto-${prod.id}`,
+        product_id: prod.id,
+        shares_purchased: 0,
+        shares_needed: prod.total_shares || 4,
+        status: 'pending' as const,
+        created_at: new Date().toISOString()
+      } : null);
       setGroupOrder(currentGroup);
 
       const allProds = await dbService.getProducts();
@@ -118,7 +126,15 @@ export const ProductDetails: React.FC = () => {
     const groupsSub = mockRealtime.subscribe('groups_updated', (updatedGroups: GroupOrder[]) => {
       const currentProductId = productIdRef.current;
       if (currentProductId) {
-        const currentGroup = updatedGroups.find(g => g.product_id === currentProductId && g.status === 'pending') || null;
+        const pendingGroup = updatedGroups.find(g => g.product_id === currentProductId && g.status === 'pending');
+        const currentGroup = pendingGroup || ((product && (product.stock_quantity === undefined || product.stock_quantity > 0)) ? {
+          id: `group-auto-${currentProductId}`,
+          product_id: currentProductId,
+          shares_purchased: 0,
+          shares_needed: product?.total_shares || 4,
+          status: 'pending' as const,
+          created_at: new Date().toISOString()
+        } : null);
         setGroupOrder(currentGroup);
       }
     });
@@ -307,7 +323,7 @@ export const ProductDetails: React.FC = () => {
                   fontWeight: '800',
                   boxShadow: '0 4px 10px rgba(249, 115, 22, 0.3)'
                 }}>
-                  {sharesLeft === 1 ? 'Last spot left! 🚨' : `${sharesLeft} spots left`}
+                  {sharesLeft === 1 ? 'Last spot left!' : `${sharesLeft} spots left`}
                 </div>
               )}
 
@@ -447,7 +463,7 @@ export const ProductDetails: React.FC = () => {
                     KoboWise Commitment
                   </span>
                   <span style={{ fontSize: '11px', color: sharesLeft === 1 ? '#D97706' : '#2563EB', fontWeight: '800', backgroundColor: '#FFFFFF', padding: '2px 8px', borderRadius: '6px' }}>
-                    {sharesLeft === 1 ? '1 spot left! 🚨' : `${sharesLeft} spots left`}
+                    {sharesLeft === 1 ? '1 spot left!' : `${sharesLeft} spots left`}
                   </span>
                 </div>
 

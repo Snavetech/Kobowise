@@ -5,6 +5,7 @@ import { dbService, mockRealtime } from '../supabase';
 import type { Product, Category, Order, GroupOrder } from '../supabase';
 import { ToastContainer, type ToastMessage } from '../components/Toast';
 import { LoadingSpinner } from '../components/LoadingSpinner';
+import { KoboWiseModal } from '../components/KoboWiseModal';
 import { 
   Plus, 
   Edit, 
@@ -18,7 +19,8 @@ import {
   FolderOpen,
   AlertTriangle,
   Package,
-  Clock
+  Clock,
+  Bell
 } from 'lucide-react';
 
 export const TraderDashboard: React.FC = () => {
@@ -27,6 +29,23 @@ export const TraderDashboard: React.FC = () => {
 
   // Tabs: 'analytics' | 'products' | 'orders'
   const [activeTab, setActiveTab] = useState<'analytics' | 'products' | 'orders'>('analytics');
+
+  // Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText: string;
+    type: 'danger' | 'confirm';
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    type: 'danger',
+    onConfirm: () => {}
+  });
 
   // Database states
   const [products, setProducts] = useState<Product[]>([]);
@@ -56,6 +75,8 @@ export const TraderDashboard: React.FC = () => {
 
   // Notification / Toast states
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [showNotifDrawer, setShowNotifDrawer] = useState(false);
 
   const loadTraderData = useCallback(async () => {
     if (!user) return;
@@ -66,11 +87,13 @@ export const TraderDashboard: React.FC = () => {
     const cats = await dbService.getCategories();
     const ords = await dbService.getTraderOrders(user.id);
     const groups = await dbService.getGroupOrders();
+    const notifs = await dbService.getNotifications(user.id);
 
     setProducts(traderProds);
     setCategories(cats);
     setOrders(ords);
     setGroupOrders(groups);
+    setNotifications(notifs);
     
     // Auto-select first category in form
     if (cats.length > 0 && !categoryId) {
@@ -92,15 +115,43 @@ export const TraderDashboard: React.FC = () => {
     
     loadTraderData();
 
-    // Subscribe to mock real-time events to refresh active groups/orders
+    // Subscribe to mock real-time events to refresh active groups/orders/notifications
     const groupsSub = mockRealtime.subscribe('groups_updated', () => {
       loadTraderData();
     });
 
+    const notifsSub = mockRealtime.subscribe('notifications_updated', () => {
+      if (user) {
+        dbService.getNotifications(user.id).then(setNotifications);
+      }
+    });
+
+    const toggleDrawerSub = mockRealtime.subscribe('toggle_notif_drawer', () => {
+      setShowNotifDrawer(prev => !prev);
+    });
+
     return () => {
       groupsSub.unsubscribe();
+      notifsSub.unsubscribe();
+      toggleDrawerSub.unsubscribe();
     };
   }, [user, navigate, loadTraderData]);
+
+  const markNotificationRead = async (id: string) => {
+    await dbService.markNotificationAsRead(id);
+    if (user) {
+      const notifs = await dbService.getNotifications(user.id);
+      setNotifications(notifs);
+    }
+  };
+
+  const markAllNotificationsRead = async () => {
+    if (user) {
+      await dbService.markAllNotificationsAsRead(user.id);
+      const notifs = await dbService.getNotifications(user.id);
+      setNotifications(notifs);
+    }
+  };
 
   const addToast = (message: string, type: ToastMessage['type'] = 'info') => {
     const id = Date.now().toString();
@@ -167,14 +218,21 @@ export const TraderDashboard: React.FC = () => {
     setShowAddForm(true);
   };
 
-  const handleDeleteClick = async (productId: string) => {
-    if (window.confirm('Are you sure you want to delete this product?')) {
-      const deleted = await dbService.deleteProduct(productId);
-      if (deleted) {
-        addToast('Product deleted successfully.', 'success');
-        loadTraderData();
+  const handleDeleteClick = (productId: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Product Listing',
+      message: 'Are you sure you want to delete this product listing from KoboWise? This action cannot be undone.',
+      confirmText: 'Delete Listing',
+      type: 'danger',
+      onConfirm: async () => {
+        const deleted = await dbService.deleteProduct(productId);
+        if (deleted) {
+          addToast('Product deleted successfully.', 'success');
+          loadTraderData();
+        }
       }
-    }
+    });
   };
 
   const handleStatusChange = async (orderId: string, nextStatus: Order['status']) => {
@@ -230,6 +288,70 @@ export const TraderDashboard: React.FC = () => {
     .filter(o => o.status === 'delivered')
     .reduce((acc, o) => acc + o.total_price, 0);
 
+  // Dynamic Monthly Revenue Calculation matching current time and date
+  const monthlyRevenueInfo = React.useMemo(() => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonthIndex = now.getMonth();
+
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    // Generate 6 months sequence ending at the current month & year
+    const last6Months: Array<{ month: string; year: number; monthKey: string }> = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(currentYear, currentMonthIndex - i, 1);
+      const mName = monthNames[d.getMonth()];
+      const yr = d.getFullYear();
+      const mKey = `${yr}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      last6Months.push({ month: mName, year: yr, monthKey: mKey });
+    }
+
+    // Default base revenue values to preserve existing data profile
+    const defaultAmounts = [42000, 68000, 55000, 91000, 73000, 108000];
+
+    // Map order sales into matching month buckets
+    const monthTotals = last6Months.map((mObj, idx) => {
+      const actualSales = orders
+        .filter(o => (o.status === 'delivered' || o.status === 'ready_for_pickup' || o.status === 'paid' || o.status === 'processing'))
+        .filter(o => {
+          const oDate = new Date(o.created_at || Date.now());
+          const oKey = `${oDate.getFullYear()}-${String(oDate.getMonth() + 1).padStart(2, '0')}`;
+          return oKey === mObj.monthKey;
+        })
+        .reduce((sum, o) => sum + o.total_price, 0);
+
+      const totalVal = defaultAmounts[idx] + actualSales;
+      return {
+        month: mObj.month,
+        year: mObj.year,
+        amountVal: totalVal,
+        amount: totalVal >= 1000 ? `₦${Math.round(totalVal / 1000)}k` : `₦${totalVal}`
+      };
+    });
+
+    const maxVal = Math.max(...monthTotals.map(b => b.amountVal), 1);
+    const bars = monthTotals.map(b => ({
+      ...b,
+      height: `${Math.max(25, Math.round((b.amountVal / maxVal) * 100))}%`
+    }));
+
+    const startMonth = last6Months[0].month;
+    const endMonth = last6Months[5].month;
+    const startYear = last6Months[0].year;
+    const endYear = last6Months[5].year;
+    const rangeLabel = startYear === endYear 
+      ? `${startMonth} – ${endMonth} ${endYear}` 
+      : `${startMonth} ${startYear} – ${endMonth} ${endYear}`;
+
+    const periodTotal = monthTotals.reduce((acc, b) => acc + b.amountVal, 0);
+
+    return {
+      rangeLabel,
+      bars,
+      periodTotal
+    };
+  }, [orders]);
+
 
   const activeGroupBuysCount = groupOrders.filter(g => g.status === 'pending' && products.some(p => p.id === g.product_id)).length;
   const completedGroupBuysCount = groupOrders.filter(g => g.status === 'completed' && products.some(p => p.id === g.product_id)).length;
@@ -245,14 +367,21 @@ export const TraderDashboard: React.FC = () => {
 
   const getOrderStatusBadge = (status: Order['status']) => {
     switch (status) {
+      case 'paid':
+      case 'processing':
+        return <span className="badge" style={{ backgroundColor: '#FEF3C7', color: '#D97706', border: '1px solid #FDE68A', fontWeight: '800' }}>Processing Order</span>;
       case 'ready_for_pickup':
-        return <span className="badge badge-completed">Ready for Collection</span>;
+        return <span className="badge" style={{ backgroundColor: '#DCFCE7', color: '#15803D', border: '1px solid #BBF7D0', fontWeight: '800' }}>Processed Order</span>;
       case 'delivered':
-        return <span className="badge" style={{ backgroundColor: '#E0F2FE', color: 'var(--primary-navy)' }}>Collected</span>;
+        return <span className="badge" style={{ backgroundColor: '#E0F2FE', color: '#0369A1', border: '1px solid #BAE6FD', fontWeight: '800' }}>Delivered & Collected</span>;
+      case 'refund_requested':
+        return <span className="badge" style={{ backgroundColor: '#FEE2E2', color: '#DC2626', border: '1px solid #FCA5A5', fontWeight: '800' }}>Refund Requested</span>;
+      case 'refunded':
+        return <span className="badge badge-cancelled">Refunded</span>;
       case 'cancelled':
         return <span className="badge badge-cancelled">Cancelled</span>;
       default:
-        return <span className="badge badge-pending">Paid (Group Pending)</span>;
+        return <span className="badge badge-pending">Processing Order</span>;
     }
   };
 
@@ -471,10 +600,10 @@ export const TraderDashboard: React.FC = () => {
                 boxShadow: '0 2px 8px rgba(30, 64, 175, 0.03)'
               }}>
                 <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0F172A', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ color: '#2563EB' }}>📊</span> Monthly Revenue
+                  <TrendingUp size={18} style={{ color: '#2563EB' }} /> Monthly Revenue
                 </h3>
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '32px' }}>
-                  Jan – Jun 2025
+                  {monthlyRevenueInfo.rangeLabel}
                 </span>
 
                 {/* Graph bars container */}
@@ -487,14 +616,7 @@ export const TraderDashboard: React.FC = () => {
                   paddingBottom: '8px',
                   marginBottom: '20px'
                 }}>
-                  {[
-                    { month: 'Jan', amount: '₦42k', height: '40%' },
-                    { month: 'Feb', amount: '₦68k', height: '60%' },
-                    { month: 'Mar', amount: '₦55k', height: '50%' },
-                    { month: 'Apr', amount: '₦91k', height: '80%' },
-                    { month: 'May', amount: '₦73k', height: '65%' },
-                    { month: 'Jun', amount: '₦108k', height: '100%' }
-                  ].map((bar, i) => (
+                  {monthlyRevenueInfo.bars.map((bar, i) => (
                     <div key={i} style={{ 
                       display: 'flex', 
                       flexDirection: 'column', 
@@ -516,7 +638,8 @@ export const TraderDashboard: React.FC = () => {
                           width: '100%', 
                           height: bar.height, 
                           background: 'linear-gradient(180deg, #2563EB 0%, #3B82F6 100%)',
-                          borderRadius: '6px'
+                          borderRadius: '6px',
+                          transition: 'height 0.3s ease'
                         }} />
                       </div>
                       <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px', fontWeight: '600' }}>{bar.month}</span>
@@ -526,7 +649,7 @@ export const TraderDashboard: React.FC = () => {
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600' }}>Total this period</span>
-                  <span style={{ fontSize: '18px', fontWeight: '800', color: '#2563EB' }}>{formatCurrency(437000)}</span>
+                  <span style={{ fontSize: '18px', fontWeight: '800', color: '#2563EB' }}>{formatCurrency(monthlyRevenueInfo.periodTotal)}</span>
                 </div>
               </div>
 
@@ -718,42 +841,73 @@ export const TraderDashboard: React.FC = () => {
                     </div>
 
                     {/* Order action triggers */}
-                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                      {order.status === 'paid' && (
-                        <button 
-                          onClick={() => handleStatusChange(order.id, 'processing')}
-                          className="btn btn-outline btn-sm"
-                          style={{ color: 'var(--status-pending)', borderColor: 'var(--status-pending)' }}
-                        >
-                          Mark Processing
-                        </button>
-                      )}
-
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+                      {/* 1. Processing Order -> Trader confirms order */}
                       {(order.status === 'paid' || order.status === 'processing') && (
                         <button 
                           onClick={() => handleStatusChange(order.id, 'ready_for_pickup')}
                           className="btn btn-secondary btn-sm"
+                          style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', border: 'none', color: '#FFFFFF', fontWeight: '800', borderRadius: '12px', padding: '10px 22px' }}
                         >
-                          Mark Ready for Pickup <i className="fa-solid fa-box" style={{ marginLeft: '4px' }}></i>
+                          Confirm Order
                         </button>
                       )}
 
-                      {order.status === 'ready_for_pickup' && (
-                        <button 
-                          onClick={() => handleStatusChange(order.id, 'delivered')}
-                          className="btn btn-primary btn-sm"
-                        >
-                          Confirm Handed Over / Collected
-                        </button>
+                      {/* 3. Refund Requested State -> Approve or Reject */}
+                      {order.status === 'refund_requested' && (
+                        <>
+                          <button 
+                            onClick={async () => {
+                              const success = await dbService.processRefund(order.id, true);
+                              if (success) {
+                                addToast(`Approved refund of ${formatCurrency(order.total_price)} for ${order.buyer_name || 'buyer'}`, 'success');
+                                loadTraderData();
+                              }
+                            }}
+                            className="btn btn-sm"
+                            style={{ backgroundColor: '#DC2626', color: '#FFFFFF', border: 'none', borderRadius: '12px', padding: '10px 20px', fontWeight: '800' }}
+                          >
+                            Approve Refund ({formatCurrency(order.total_price)})
+                          </button>
+                          <button 
+                            onClick={async () => {
+                              const success = await dbService.processRefund(order.id, false);
+                              if (success) {
+                                addToast('Refund request rejected.', 'info');
+                                loadTraderData();
+                              }
+                            }}
+                            className="btn btn-outline btn-sm"
+                            style={{ borderRadius: '12px', padding: '10px 16px', fontWeight: '700' }}
+                          >
+                            Reject Refund
+                          </button>
+                        </>
                       )}
 
-                      {order.status !== 'delivered' && order.status !== 'cancelled' && (
+                      {/* Issue Refund / Cancel Button for active orders */}
+                      {order.status !== 'delivered' && order.status !== 'cancelled' && order.status !== 'refunded' && order.status !== 'refund_requested' && (
                         <button 
-                          onClick={() => handleStatusChange(order.id, 'cancelled')}
+                          onClick={() => {
+                            setConfirmModal({
+                              isOpen: true,
+                              title: 'Issue Full Refund',
+                              message: `Are you sure you want to issue a full refund of ${formatCurrency(order.total_price)} to ${order.buyer_name || 'buyer'}?`,
+                              confirmText: 'Approve & Refund',
+                              type: 'danger',
+                              onConfirm: async () => {
+                                const success = await dbService.processRefund(order.id, true);
+                                if (success) {
+                                  addToast(`Issued refund of ${formatCurrency(order.total_price)} for ${order.buyer_name || 'buyer'}`, 'success');
+                                  loadTraderData();
+                                }
+                              }
+                            });
+                          }}
                           className="btn btn-text btn-sm"
-                          style={{ color: 'var(--status-cancelled)', marginLeft: 'auto' }}
+                          style={{ color: '#DC2626', marginLeft: 'auto', fontWeight: '700', fontSize: '12px' }}
                         >
-                          Cancel Order
+                          Issue Refund
                         </button>
                       )}
                     </div>
@@ -1024,6 +1178,102 @@ export const TraderDashboard: React.FC = () => {
 
       </div>
 
+      {/* NOTIFICATIONS DRAWER OVERLAY FOR SELLER */}
+      {showNotifDrawer && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: '100%',
+          maxWidth: '380px',
+          backgroundColor: '#FFFFFF',
+          boxShadow: '-4px 0 20px rgba(30, 64, 175, 0.1)',
+          zIndex: 1500,
+          display: 'flex',
+          flexDirection: 'column',
+          animation: 'drawerSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+        }}>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px', borderBottom: '1px solid #DBEAFE', backgroundColor: '#1E3A8A', color: '#FFFFFF' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Bell size={20} />
+              <h3 style={{ color: '#FFFFFF', fontSize: '18px', fontWeight: '700' }}>Seller Notifications</h3>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              {notifications.some(n => !n.is_read) && (
+                <button 
+                  onClick={markAllNotificationsRead}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.15)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    borderRadius: '12px',
+                    color: '#FFFFFF',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    padding: '4px 10px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title="Mark all notifications as read"
+                >
+                  Mark all read
+                </button>
+              )}
+              <button 
+                onClick={() => setShowNotifDrawer(false)}
+                style={{ background: 'none', border: 'none', color: '#FFFFFF', cursor: 'pointer' }}
+              >
+                <X size={22} />
+              </button>
+            </div>
+          </div>
+
+          {/* List */}
+          <div style={{ overflowY: 'auto', flexGrow: 1, padding: '16px' }}>
+            {notifications.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 20px', color: '#475569' }}>
+                <Bell size={32} style={{ color: '#94A3B8', marginBottom: '12px' }} />
+                <p>No seller notifications yet.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {notifications.map((notif) => (
+                  <div 
+                    key={notif.id}
+                    style={{ 
+                      padding: '14px', 
+                      borderRadius: '14px', 
+                      backgroundColor: notif.is_read ? '#F5F5EB' : 'rgba(37, 99, 235, 0.04)',
+                      border: '1px solid #DBEAFE',
+                      borderLeft: notif.is_read ? '1px solid #DBEAFE' : '4px solid #2563EB',
+                      position: 'relative',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+                      <span style={{ fontWeight: '700', fontSize: '13px', color: '#0F172A' }}>{notif.title}</span>
+                      {!notif.is_read && (
+                        <button 
+                          onClick={() => markNotificationRead(notif.id)}
+                          style={{ background: 'none', border: 'none', color: '#2563EB', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}
+                        >
+                          Mark Read
+                        </button>
+                      )}
+                    </div>
+                    <p style={{ fontSize: '12px', color: '#475569', lineHeight: '1.4' }}>{notif.message}</p>
+                    <span style={{ display: 'block', fontSize: '10px', color: '#94A3B8', marginTop: '8px' }}>
+                      {new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <style>{`
         @media (min-width: 768px) {
           .dashboard-charts-grid {
@@ -1036,6 +1286,18 @@ export const TraderDashboard: React.FC = () => {
           }
         }
       `}</style>
+
+      {/* KoboWise Confirmation Modal */}
+      <KoboWiseModal 
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        type={confirmModal.type}
+      />
+
     </div>
   );
 };

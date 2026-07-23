@@ -18,7 +18,8 @@ import {
   Leaf,
   ChevronDown,
   Heart,
-  Sparkles
+  Sparkles,
+  BookOpen
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -333,7 +334,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               }}
               className="sidebar-link"
             >
-              <Sparkles size={18} style={{ color: 'var(--accent-gold)' }} />
+              <BookOpen size={18} />
               Welcome Guide
             </button>
           )}
@@ -786,7 +787,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 textAlign: 'left'
               }}
             >
-              <Sparkles size={18} style={{ color: 'var(--accent-gold)' }} />
+              <BookOpen size={18} />
               Welcome Guide
             </button>
           )}

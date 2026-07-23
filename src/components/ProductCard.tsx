@@ -41,13 +41,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     const added = await dbService.toggleWishlist(user.id, product.id);
     setIsWished(added);
   };
-  const activeGroup = (groupOrder && groupOrder.status === 'pending') ? groupOrder : null;
+  const isOutOfStock = product.stock_quantity !== undefined && product.stock_quantity <= 0;
+  const activeGroup = (groupOrder && groupOrder.status === 'pending' && groupOrder.shares_purchased < product.total_shares) ? groupOrder : null;
   const confirmedShares = activeGroup ? activeGroup.shares_purchased : 0;
-  const cartShares = (existingCartItem && confirmedShares > 0) ? existingCartItem.sharesBought : 0;
+  const cartShares = existingCartItem ? existingCartItem.sharesBought : 0;
   const sharesPurchased = Math.min(product.total_shares, confirmedShares + cartShares);
   const totalShares = product.total_shares;
   const sharesLeft = Math.max(0, totalShares - sharesPurchased);
-  const isComplete = sharesLeft === 0;
+  const isComplete = isOutOfStock;
 
   const percentage = Math.min(100, Math.max(0, (sharesPurchased / totalShares) * 100));
   
@@ -135,13 +136,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <Heart size={16} fill={isWished ? '#EF4444' : 'none'} style={{ color: isWished ? '#EF4444' : '#94A3B8' }} />
         </button>
 
-        {/* Category or Deal Closed Badge Overlay */}
-        {isComplete ? (
+        {/* Category or Out of Stock Badge Overlay */}
+        {isOutOfStock ? (
           <span className="glass-badge" style={{
             position: 'absolute',
             top: '12px',
             left: '12px',
-            color: 'var(--primary-green-dark)',
+            color: '#EF4444',
+            backgroundColor: '#FEF2F2',
             padding: '5px 12px',
             borderRadius: '8px',
             fontSize: '11px',
@@ -152,7 +154,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             zIndex: 5
           }}>
             <Lock size={12} />
-            Deal Closed
+            Out of Stock
           </span>
         ) : (
           <span className="glass-badge" style={{

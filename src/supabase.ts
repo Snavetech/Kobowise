@@ -80,7 +80,7 @@ export interface Order {
   group_order_id: string;
   shares_bought: number;
   total_price: number;
-  status: 'paid' | 'processing' | 'ready_for_pickup' | 'delivered' | 'cancelled';
+  status: 'paid' | 'processing' | 'ready_for_pickup' | 'delivered' | 'cancelled' | 'refund_requested' | 'refunded';
   payment_method: string;
   payment_reference: string;
   created_at: string;
@@ -93,6 +93,11 @@ export interface Order {
   buyer_name?: string;
   estimated_delivery?: string;
   pickup_location?: string;
+  refund_reason?: string;
+  bank_name?: string;
+  account_number?: string;
+  account_name?: string;
+  refund_account_submitted?: boolean;
 }
 
 export interface Review {
@@ -787,6 +792,8 @@ if (isDemoMode) {
             prods[pIdx].stock_quantity = newStock;
             if (newStock === 0) {
               prods[pIdx].status = 'completed';
+            } else {
+              prods[pIdx].status = 'active';
             }
             setLocal('products', prods);
 
@@ -943,6 +950,21 @@ export const dbService = {
       };
       products.push(newProduct);
       setLocal('products', products);
+
+      // Seed an initial pending group order for this newly created product
+      const groupOrders = getLocal<GroupOrder[]>('group_orders', MOCK_GROUP_ORDERS);
+      const initialGroupOrder: GroupOrder = {
+        id: `group-${Date.now()}-${newProduct.id}`,
+        product_id: newProduct.id,
+        shares_purchased: 0,
+        shares_needed: newProduct.total_shares || 4,
+        status: 'pending',
+        created_at: new Date().toISOString()
+      };
+      groupOrders.push(initialGroupOrder);
+      setLocal('group_orders', groupOrders);
+      mockRealtime.emit('groups_updated', groupOrders);
+
       return newProduct;
     }
     const { data, error } = await supabase!
@@ -950,7 +972,18 @@ export const dbService = {
       .insert([product])
       .select()
       .single();
-    if (error) return null;
+    if (error || !data) return null;
+
+    // Create pending group order pool in Supabase
+    await supabase!
+      .from('group_orders')
+      .insert({
+        product_id: data.id,
+        shares_needed: data.total_shares || 4,
+        shares_purchased: 0,
+        status: 'pending'
+      });
+
     return data;
   },
 
@@ -991,13 +1024,25 @@ export const dbService = {
       let groups = getLocal<GroupOrder[]>('group_orders', MOCK_GROUP_ORDERS);
       const products = await this.getProducts();
 
-      // Ensure active products with remaining stock (>0) have a pending group order pool
       let hasNewGroup = false;
+
+      // 1. Auto-complete any group orders that reached capacity
+      groups = groups.map(g => {
+        if (g.status === 'pending' && g.shares_purchased >= g.shares_needed) {
+          hasNewGroup = true;
+          return { ...g, status: 'completed' as const };
+        }
+        return g;
+      });
+
+      // 2. Ensure active products with remaining stock (>0) have a fresh pending group order pool (shares_purchased < total_shares)
       products.forEach(p => {
         const remainingStock = p.stock_quantity ?? 30;
         if (remainingStock > 0) {
-          const hasPending = groups.some(g => g.product_id === p.id && g.status === 'pending');
-          if (!hasPending) {
+          const hasUnfilledPending = groups.some(
+            g => g.product_id === p.id && g.status === 'pending' && g.shares_purchased < p.total_shares
+          );
+          if (!hasUnfilledPending) {
             groups.push({
               id: `group-${Date.now()}-${p.id}`,
               product_id: p.id,
@@ -1034,17 +1079,29 @@ export const dbService = {
       }
       
       const products = await this.getProducts();
-      // Ensure any active in-stock product missing a pending pool gets one initialized in Supabase
-      const existingGroups = data.map(g => ({
+      let existingGroups = data.map(g => ({
         ...g,
         product: g.products
       }));
 
+      // Auto-complete full group orders in Supabase if needed
+      for (const g of existingGroups) {
+        if (g.status === 'pending' && g.shares_purchased >= g.shares_needed) {
+          g.status = 'completed';
+          await supabase!
+            .from('group_orders')
+            .update({ status: 'completed' })
+            .eq('id', g.id);
+        }
+      }
+
       for (const p of products) {
         const stock = p.stock_quantity ?? 30;
         if (stock > 0) {
-          const hasPending = existingGroups.some(g => g.product_id === p.id && g.status === 'pending');
-          if (!hasPending) {
+          const hasUnfilledPending = existingGroups.some(
+            g => g.product_id === p.id && g.status === 'pending' && g.shares_purchased < p.total_shares
+          );
+          if (!hasUnfilledPending) {
             const { data: newG } = await supabase!
               .from('group_orders')
               .insert({
@@ -1147,7 +1204,7 @@ export const dbService = {
         group_order_id: group.id,
         shares_bought: sharesToBuy,
         total_price: sharesToBuy * product.price_per_share,
-        status: isComplete ? 'ready_for_pickup' : 'paid',
+        status: 'processing',
         payment_method: paymentMethod,
         payment_reference: finalRef,
         created_at: new Date().toISOString()
@@ -1185,7 +1242,7 @@ export const dbService = {
         id: `notif-${Date.now()}-user`,
         user_id: buyerId,
         title: 'Joined Group Buy!',
-        message: `Successfully paid ₦${newOrder.total_price} for Order ${finalRef} (${product.name}).`,
+        message: `Successfully paid ₦${newOrder.total_price} for Order ${finalRef} (${product.name}). Your order is under processing by the seller until confirmed.`,
         is_read: false,
         created_at: new Date().toISOString()
       });
@@ -1195,8 +1252,8 @@ export const dbService = {
         notifications.push({
           id: `notif-${Date.now()}-trader`,
           user_id: product.trader_id,
-          title: 'Group Complete - Fulfill Order!',
-          message: `The group buy for "${product.name}" is completed. Please prep the items for pickup at ${product.pickup_location}.`,
+          title: 'Group Complete - Confirm Order!',
+          message: `The group buy for "${product.name}" is completed! Please review and confirm the order on your Trader Dashboard.`,
           is_read: false,
           created_at: new Date().toISOString()
         });
@@ -1209,7 +1266,7 @@ export const dbService = {
               id: `notif-${Date.now()}-${bId}`,
               user_id: bId,
               title: 'Group Buying Complete!',
-              message: `Fantastic! The group for "${product.name}" is now fully funded. Go collect your portion at ${product.pickup_location}!`,
+              message: `The group for "${product.name}" is fully funded! Your order is now being processed by the seller.`,
               is_read: false,
               created_at: new Date().toISOString()
             });
@@ -1273,7 +1330,7 @@ export const dbService = {
         group_order_id: currentGroup.id,
         shares_bought: sharesToBuy,
         total_price: sharesToBuy * product.price_per_share,
-        status: isCompleted ? 'ready_for_pickup' : 'paid',
+        status: 'processing',
         payment_method: paymentMethod,
         payment_reference: finalRef
       })
@@ -1458,17 +1515,26 @@ export const dbService = {
           const grp = groupOrders.find(g => g.id === o.group_order_id);
           const prod = grp ? products.find(p => p.id === grp.product_id) : null;
 
+          let title = 'Order Update';
           let message = `Your order status was updated to: ${status.replace(/_/g, ' ')}.`;
-          if (status === 'ready_for_pickup') {
-            message = `Ready! Go pick up your portion of "${prod ? prod.name : 'your bulk buy'}" at ${prod ? prod.pickup_location : 'the pickup point'}.`;
+          if (status === 'processing') {
+            title = 'Order Processing';
+            message = `The seller has received your order for "${prod ? prod.name : 'your bulk buy'}" and is confirming payment & packaging the item.`;
+          } else if (status === 'ready_for_pickup') {
+            title = 'Processed Order — Ready!';
+            message = `Processed Order! The seller has finished processing your order for "${prod ? prod.name : 'your bulk buy'}". Your item is packed and ready for collection at ${prod ? prod.pickup_location : 'the pickup point'}.`;
           } else if (status === 'delivered') {
-            message = `Collected! Your portion of "${prod ? prod.name : 'your bulk buy'}" has been marked as picked up. Thank you!`;
+            title = 'Order Delivered';
+            message = `Collected! Your portion of "${prod ? prod.name : 'your bulk buy'}" has been marked as delivered. Thank you!`;
+          } else if (status === 'refunded') {
+            title = 'Order Refunded';
+            message = `Refunded! ₦${o.total_price} for "${prod ? prod.name : 'your bulk buy'}" has been refunded to your account.`;
           }
 
           notifications.push({
             id: `notif-${Date.now()}`,
             user_id: o.buyer_id,
-            title: status === 'ready_for_pickup' ? 'Ready for Pickup!' : 'Order Update',
+            title,
             message,
             is_read: false,
             created_at: new Date().toISOString()
@@ -1489,7 +1555,195 @@ export const dbService = {
       .update({ status })
       .eq('id', orderId);
 
+    mockRealtime.emit('notifications_updated', {});
     return !error;
+  },
+
+  async requestRefund(orderId: string, buyerId: string, reason: string): Promise<boolean> {
+    if (isDemoMode) {
+      const orders = getLocal<Order[]>('orders', []);
+      const order = orders.find(o => o.id === orderId && o.buyer_id === buyerId);
+      if (!order) return false;
+
+      order.status = 'refund_requested';
+      order.refund_reason = reason;
+      setLocal('orders', orders);
+
+      // Notify seller
+      const products = getLocal<Product[]>('products', []);
+      const groupOrders = getLocal<GroupOrder[]>('group_orders', []);
+      const grp = groupOrders.find(g => g.id === order.group_order_id);
+      const prod = grp ? products.find(p => p.id === grp.product_id) : null;
+
+      const notifications = getLocal<Notification[]>('notifications', []);
+      const traderId = prod ? prod.trader_id : 'trader-1';
+      notifications.push({
+        id: `notif-${Date.now()}`,
+        user_id: traderId,
+        title: 'Refund Requested by Buyer',
+        message: `Buyer requested a refund for "${prod ? prod.name : 'an order'}" (Order #${order.payment_reference || order.id.substring(0, 8)}). Reason: ${reason}`,
+        is_read: false,
+        created_at: new Date().toISOString()
+      });
+      setLocal('notifications', notifications);
+      mockRealtime.emit('notifications_updated', {});
+
+      return true;
+    }
+
+    try {
+      const { data: order } = await supabase!
+        .from('orders')
+        .select('*, group_orders(*, products(*))')
+        .eq('id', orderId)
+        .single();
+
+      if (!order) return false;
+
+      await supabase!
+        .from('orders')
+        .update({ status: 'refund_requested', refund_reason: reason })
+        .eq('id', orderId);
+
+      const traderId = order.group_orders?.products?.trader_id;
+      if (traderId) {
+        await supabase!
+          .from('notifications')
+          .insert({
+            user_id: traderId,
+            title: 'Refund Requested by Buyer',
+            message: `Buyer requested a refund for "${order.group_orders?.products?.name || 'order'}". Reason: ${reason}`
+          });
+      }
+
+      mockRealtime.emit('notifications_updated', {});
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  async processRefund(orderId: string, approve: boolean): Promise<boolean> {
+    const nextStatus = approve ? 'refunded' : 'ready_for_pickup';
+    if (isDemoMode) {
+      const orders = getLocal<Order[]>('orders', []);
+      const order = orders.find(o => o.id === orderId);
+      if (!order) return false;
+
+      order.status = nextStatus;
+      setLocal('orders', orders);
+
+      const notifications = getLocal<Notification[]>('notifications', []);
+      notifications.push({
+        id: `notif-${Date.now()}`,
+        user_id: order.buyer_id,
+        title: approve ? 'Refund Approved!' : 'Refund Request Update',
+        message: approve 
+          ? `Your refund of ₦${order.total_price} for Order #${order.payment_reference || order.id} has been processed successfully.`
+          : `Your refund request for Order #${order.payment_reference || order.id} was not approved. Order remains active.`,
+        is_read: false,
+        created_at: new Date().toISOString()
+      });
+      setLocal('notifications', notifications);
+      mockRealtime.emit('notifications_updated', {});
+
+      return true;
+    }
+
+    try {
+      const { data: order } = await supabase!
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+
+      if (!order) return false;
+
+      await supabase!
+        .from('orders')
+        .update({ status: nextStatus })
+        .eq('id', orderId);
+
+      await supabase!
+        .from('notifications')
+        .insert({
+          user_id: order.buyer_id,
+          title: approve ? 'Refund Approved!' : 'Refund Request Update',
+          message: approve 
+            ? `Your refund of ₦${order.total_price} for Order #${order.payment_reference || order.id} has been processed successfully.`
+            : `Your refund request for Order #${order.payment_reference || order.id} was not approved.`
+        });
+
+      mockRealtime.emit('notifications_updated', {});
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  async submitRefundBankDetails(
+    orderId: string, 
+    details: { bank_name: string; account_number: string; account_name: string }
+  ): Promise<boolean> {
+    if (isDemoMode) {
+      const orders = getLocal<Order[]>('orders', []);
+      const order = orders.find(o => o.id === orderId);
+      if (!order) return false;
+
+      order.bank_name = details.bank_name;
+      order.account_number = details.account_number;
+      order.account_name = details.account_name;
+      order.refund_account_submitted = true;
+
+      setLocal('orders', orders);
+
+      const notifications = getLocal<Notification[]>('notifications', []);
+      notifications.push({
+        id: `notif-${Date.now()}`,
+        user_id: order.buyer_id,
+        title: 'Refund Bank Details Received',
+        message: `Account details for Order #${order.payment_reference || order.id.substring(0, 8)} submitted. Your refund will be processed within 2-4 business days.`,
+        is_read: false,
+        created_at: new Date().toISOString()
+      });
+      setLocal('notifications', notifications);
+      mockRealtime.emit('notifications_updated', {});
+
+      return true;
+    }
+
+    try {
+      const { data: order } = await supabase!
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+
+      if (!order) return false;
+
+      await supabase!
+        .from('orders')
+        .update({
+          bank_name: details.bank_name,
+          account_number: details.account_number,
+          account_name: details.account_name,
+          refund_account_submitted: true
+        })
+        .eq('id', orderId);
+
+      await supabase!
+        .from('notifications')
+        .insert({
+          user_id: order.buyer_id,
+          title: 'Refund Bank Details Received',
+          message: `Account details for Order #${order.payment_reference || order.id.substring(0, 8)} submitted. Your refund will be processed within 2-4 business days.`
+        });
+
+      mockRealtime.emit('notifications_updated', {});
+      return true;
+    } catch {
+      return false;
+    }
   },
 
   async cancelOrder(orderId: string, buyerId: string): Promise<boolean> {
@@ -1766,6 +2020,22 @@ export const dbService = {
       .from('notifications')
       .update({ is_read: true })
       .eq('id', notificationId);
+    return !error;
+  },
+
+  async markAllNotificationsAsRead(userId: string): Promise<boolean> {
+    if (isDemoMode) {
+      const notifs = getLocal<Notification[]>('notifications', []);
+      const updated = notifs.map(n => n.user_id === userId ? { ...n, is_read: true } : n);
+      setLocal('notifications', updated);
+      mockRealtime.emit('notifications_updated', {});
+      return true;
+    }
+    const { error } = await supabase!
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('user_id', userId);
+    mockRealtime.emit('notifications_updated', {});
     return !error;
   },
 
