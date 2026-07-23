@@ -16,6 +16,12 @@ console.log(
 // Initialize real client if keys are available
 export const supabase = !isDemoMode ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
+// Helper to check if string is a valid PostgreSQL UUID
+export function isUuid(str?: string): boolean {
+  if (!str) return false;
+  return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(str);
+}
+
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
@@ -1142,7 +1148,7 @@ export const dbService = {
       ? paymentReference 
       : uniqueOrderNo;
 
-    if (isDemoMode) {
+    if (isDemoMode || !isUuid(productId) || !isUuid(buyerId)) {
       const groupOrders = getLocal<GroupOrder[]>('group_orders', MOCK_GROUP_ORDERS);
       let group = groupOrders.find(g => g.product_id === productId && g.status === 'pending');
       
@@ -1411,7 +1417,7 @@ export const dbService = {
 
   // --- ORDERS ---
   async getBuyerOrders(buyerId: string): Promise<Order[]> {
-    if (isDemoMode) {
+    if (isDemoMode || !isUuid(buyerId)) {
       const orders = getLocal<Order[]>('orders', []);
       const groupOrders = getLocal<GroupOrder[]>('group_orders', []);
       const products = await this.getProducts();
@@ -1461,7 +1467,7 @@ export const dbService = {
   },
 
   async getTraderOrders(traderId: string): Promise<Order[]> {
-    if (isDemoMode) {
+    if (isDemoMode || !isUuid(traderId)) {
       const orders = getLocal<Order[]>('orders', []);
       const groupOrders = getLocal<GroupOrder[]>('group_orders', []);
       const products = await this.getProducts();
@@ -1504,7 +1510,7 @@ export const dbService = {
   },
 
   async updateOrderStatus(orderId: string, status: Order['status']): Promise<boolean> {
-    if (isDemoMode) {
+    if (isDemoMode || !isUuid(orderId)) {
       const orders = getLocal<Order[]>('orders', []);
       const updated = orders.map(o => {
         if (o.id === orderId) {
@@ -1560,7 +1566,7 @@ export const dbService = {
   },
 
   async requestRefund(orderId: string, buyerId: string, reason: string): Promise<boolean> {
-    if (isDemoMode) {
+    if (isDemoMode || !isUuid(orderId) || !isUuid(buyerId)) {
       const orders = getLocal<Order[]>('orders', []);
       const order = orders.find(o => o.id === orderId && o.buyer_id === buyerId);
       if (!order) return false;
@@ -1625,7 +1631,7 @@ export const dbService = {
 
   async processRefund(orderId: string, approve: boolean): Promise<boolean> {
     const nextStatus = approve ? 'refunded' : 'ready_for_pickup';
-    if (isDemoMode) {
+    if (isDemoMode || !isUuid(orderId)) {
       const orders = getLocal<Order[]>('orders', []);
       const order = orders.find(o => o.id === orderId);
       if (!order) return false;
@@ -1685,7 +1691,7 @@ export const dbService = {
     orderId: string, 
     details: { bank_name: string; account_number: string; account_name: string }
   ): Promise<boolean> {
-    if (isDemoMode) {
+    if (isDemoMode || !isUuid(orderId)) {
       const orders = getLocal<Order[]>('orders', []);
       const order = orders.find(o => o.id === orderId);
       if (!order) return false;
@@ -1747,7 +1753,7 @@ export const dbService = {
   },
 
   async cancelOrder(orderId: string, buyerId: string): Promise<boolean> {
-    if (isDemoMode) {
+    if (isDemoMode || !isUuid(orderId) || !isUuid(buyerId)) {
       const orders = getLocal<Order[]>('orders', []);
       const order = orders.find(o => o.id === orderId && o.buyer_id === buyerId);
       if (!order || order.status === 'cancelled') return false;
@@ -1827,7 +1833,7 @@ export const dbService = {
   },
 
   async deleteOrder(orderId: string, buyerId: string): Promise<boolean> {
-    if (isDemoMode) {
+    if (isDemoMode || !isUuid(orderId) || !isUuid(buyerId)) {
       const orders = getLocal<Order[]>('orders', []);
       const order = orders.find(o => o.id === orderId && o.buyer_id === buyerId);
       if (!order) return false;
@@ -1896,7 +1902,7 @@ export const dbService = {
 
   // --- REVIEWS ---
   async getReviews(productId: string): Promise<Review[]> {
-    if (isDemoMode) {
+    if (isDemoMode || !isUuid(productId)) {
       const reviews = getLocal<Review[]>('reviews', []);
       return reviews.filter(r => r.product_id === productId);
     }
@@ -1913,7 +1919,7 @@ export const dbService = {
   },
 
   async addReview(productId: string, buyerId: string, buyerName: string, rating: number, comment: string): Promise<Review | null> {
-    if (isDemoMode) {
+    if (isDemoMode || !isUuid(productId) || !isUuid(buyerId)) {
       const reviews = getLocal<Review[]>('reviews', []);
       const newReview: Review = {
         id: `rev-${Date.now()}`,
@@ -1942,7 +1948,7 @@ export const dbService = {
 
   // --- WISHLIST ---
   async getWishlist(buyerId: string): Promise<Product[]> {
-    if (isDemoMode) {
+    if (isDemoMode || !isUuid(buyerId)) {
       const wishlist = getLocal<any[]>('wishlist', []);
       const userWish = wishlist.filter(w => w.buyer_id === buyerId).map(w => w.product_id);
       const products = await this.getProducts();
@@ -1960,7 +1966,7 @@ export const dbService = {
   },
 
   async toggleWishlist(buyerId: string, productId: string): Promise<boolean> {
-    if (isDemoMode) {
+    if (isDemoMode || !isUuid(buyerId) || !isUuid(productId)) {
       const wishlist = getLocal<any[]>('wishlist', []);
       const index = wishlist.findIndex(w => w.buyer_id === buyerId && w.product_id === productId);
       if (index > -1) {
@@ -1993,7 +1999,7 @@ export const dbService = {
 
   // --- NOTIFICATIONS ---
   async getNotifications(userId: string): Promise<Notification[]> {
-    if (isDemoMode) {
+    if (isDemoMode || !isUuid(userId)) {
       const notifs = getLocal<Notification[]>('notifications', []);
       return notifs
         .filter(n => n.user_id === userId)
@@ -2009,7 +2015,7 @@ export const dbService = {
   },
 
   async markNotificationAsRead(notificationId: string): Promise<boolean> {
-    if (isDemoMode) {
+    if (isDemoMode || !isUuid(notificationId)) {
       const notifs = getLocal<Notification[]>('notifications', []);
       const updated = notifs.map(n => n.id === notificationId ? { ...n, is_read: true } : n);
       setLocal('notifications', updated);
@@ -2024,7 +2030,7 @@ export const dbService = {
   },
 
   async markAllNotificationsAsRead(userId: string): Promise<boolean> {
-    if (isDemoMode) {
+    if (isDemoMode || !isUuid(userId)) {
       const notifs = getLocal<Notification[]>('notifications', []);
       const updated = notifs.map(n => n.user_id === userId ? { ...n, is_read: true } : n);
       setLocal('notifications', updated);
