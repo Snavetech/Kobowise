@@ -60,22 +60,23 @@ export const ProductQuickViewModal: React.FC<ProductQuickViewModalProps> = ({
     }
   }, [product, cartItems]);
 
-  if (!product) return null;
-
-  const activeGroup = (groupOrder && groupOrder.status === 'pending') ? groupOrder : null;
+  const activeGroup = (product && groupOrder && groupOrder.status === 'pending') ? groupOrder : null;
   const confirmedShares = activeGroup ? activeGroup.shares_purchased : 0;
-  const existingCartItem = cartItems.find(item => item.product.id === product.id);
+  const existingCartItem = product ? cartItems.find(item => item.product.id === product.id) : undefined;
   const isAlreadyInCart = !!existingCartItem;
   const cartShares = (existingCartItem && confirmedShares > 0) ? existingCartItem.sharesBought : 0;
-  const sharesPurchased = Math.min(product.total_shares, confirmedShares + cartShares);
-  const sharesLeft = Math.max(0, product.total_shares - sharesPurchased);
-  const maxAvailableShares = sharesLeft > 0 ? sharesLeft : Math.max(1, product.total_shares);
+  const totalProductShares = product?.total_shares || 4;
+  const sharesPurchased = Math.min(totalProductShares, confirmedShares + cartShares);
+  const sharesLeft = Math.max(0, totalProductShares - sharesPurchased);
+  const maxAvailableShares = sharesLeft > 0 ? sharesLeft : Math.max(1, totalProductShares);
 
   useEffect(() => {
-    if (sharesLeft > 0 && sharesCount > sharesLeft) {
+    if (product && sharesLeft > 0 && sharesCount > sharesLeft) {
       setSharesCount(sharesLeft);
     }
-  }, [sharesLeft, sharesCount]);
+  }, [product, sharesLeft, sharesCount]);
+
+  if (!product) return null;
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('en-NG', {

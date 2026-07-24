@@ -186,6 +186,21 @@ export const ProductDetails: React.FC = () => {
     setReviewSubmitLoading(false);
   };
 
+  const activeGroup = (groupOrder && groupOrder.status === 'pending') ? groupOrder : null;
+  const existingInCart = (product && cartItems) ? cartItems.find(item => item.product.id === product.id) : undefined;
+  const confirmedShares = activeGroup ? activeGroup.shares_purchased : 0;
+  const cartShares = (existingInCart && confirmedShares > 0) ? existingInCart.sharesBought : 0;
+  const totalProductShares = product?.total_shares || 4;
+  const sharesPurchased = Math.min(totalProductShares, confirmedShares + cartShares);
+  const sharesLeft = Math.max(0, totalProductShares - sharesPurchased);
+  const maxAvailableShares = sharesLeft > 0 ? sharesLeft : Math.max(1, totalProductShares);
+
+  useEffect(() => {
+    if (sharesLeft > 0 && sharesCount > sharesLeft) {
+      setSharesCount(sharesLeft);
+    }
+  }, [sharesLeft, sharesCount]);
+
   if (loading) {
     return <LoadingSpinner text="Loading product details..." fullPage />;
   }
@@ -199,21 +214,6 @@ export const ProductDetails: React.FC = () => {
       </div>
     );
   }
-
-  const activeGroup = (groupOrder && groupOrder.status === 'pending') ? groupOrder : null;
-  const existingInCart = cartItems.find(item => item.product.id === product.id);
-  const confirmedShares = activeGroup ? activeGroup.shares_purchased : 0;
-  const cartShares = (existingInCart && confirmedShares > 0) ? existingInCart.sharesBought : 0;
-  const sharesPurchased = Math.min(product.total_shares, confirmedShares + cartShares);
-  const sharesLeft = Math.max(0, product.total_shares - sharesPurchased);
-  // Cap selectable shares to remaining available shares for this group
-  const maxAvailableShares = sharesLeft > 0 ? sharesLeft : Math.max(1, product.total_shares);
-
-  useEffect(() => {
-    if (sharesLeft > 0 && sharesCount > sharesLeft) {
-      setSharesCount(sharesLeft);
-    }
-  }, [sharesLeft, sharesCount]);
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('en-NG', {
