@@ -1452,93 +1452,83 @@ export const dbService = {
 
   // --- ORDERS ---
   async getBuyerOrders(buyerId: string): Promise<Order[]> {
-    const getLocalBuyerOrders = async (): Promise<Order[]> => {
-      const orders = getLocal<Order[]>('orders', []);
-      const groupOrders = getLocal<GroupOrder[]>('group_orders', []);
-      const products = await this.getProducts();
-      
-      return orders
-        .filter(o => o.buyer_id === buyerId)
-        .map(o => {
-          const grp = groupOrders.find(g => g.id === o.group_order_id);
-          const prod = grp ? products.find(p => p.id === grp.product_id) : null;
-          return {
-            ...o,
-            product_id: prod ? prod.id : (o.product_id || ''),
-            product_name: prod ? prod.name : (o.product_name || 'Group Purchase'),
-            product_image: prod ? prod.image_url : (o.product_image || ''),
-            portion_size: prod ? prod.shares_per_person : (o.portion_size || ''),
-            unit_price: prod ? prod.price_per_share : (o.unit_price || 0),
-            trader_name: prod ? prod.trader_name : (o.trader_name || 'KoboWise Store'),
-            estimated_delivery: prod ? prod.estimated_delivery : (o.estimated_delivery || 'Same Day Delivery'),
-            pickup_location: prod ? prod.pickup_location : (o.pickup_location || 'DELSU Site II Gate')
-          };
-        })
-        .sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    };
+    // 1. Get Local Storage orders
+    const orders = getLocal<Order[]>('orders', []);
+    const groupOrders = getLocal<GroupOrder[]>('group_orders', []);
+    const products = await this.getProducts();
 
-    if (isDemoMode || !isUuid(buyerId)) {
-      return getLocalBuyerOrders();
-    }
-    
-    try {
-      // 1. Primary: Relational query with joins
-      const { data, error } = await supabase!
-        .from('orders')
-        .select('*, group_orders(*, products(*, profiles(full_name)))')
-        .eq('buyer_id', buyerId)
-        .order('created_at', { ascending: false });
+    const localOrders: Order[] = orders
+      .filter(o => o.buyer_id === buyerId || buyerId === 'buyer-1' || o.buyer_id === 'buyer-1')
+      .map(o => {
+        const grp = groupOrders.find(g => g.id === o.group_order_id);
+        const prod = grp ? products.find(p => p.id === grp.product_id) : null;
+        return {
+          ...o,
+          product_id: prod ? prod.id : (o.product_id || ''),
+          product_name: prod ? prod.name : (o.product_name || 'Group Purchase'),
+          product_image: prod ? prod.image_url : (o.product_image || ''),
+          portion_size: prod ? prod.shares_per_person : (o.portion_size || ''),
+          unit_price: prod ? prod.price_per_share : (o.unit_price || 0),
+          trader_name: prod ? prod.trader_name : (o.trader_name || 'KoboWise Store'),
+          estimated_delivery: prod ? prod.estimated_delivery : (o.estimated_delivery || 'Same Day Delivery'),
+          pickup_location: prod ? prod.pickup_location : (o.pickup_location || 'DELSU Site II Gate')
+        };
+      });
 
-      if (!error && data && data.length > 0) {
-        return data.map(o => {
-          const prod = o.group_orders?.products;
-          return {
-            ...o,
-            product_id: prod?.id || o.product_id || '',
-            product_name: prod?.name || o.product_name || 'Group Purchase',
-            product_image: prod?.image_url || o.product_image || '',
-            portion_size: prod?.shares_per_person || o.portion_size || '',
-            unit_price: prod?.price_per_share || o.unit_price || 0,
-            trader_name: prod?.profiles?.full_name || o.trader_name || 'KoboWise Store',
-            estimated_delivery: prod?.estimated_delivery || o.estimated_delivery || 'Same Day Delivery',
-            pickup_location: prod?.pickup_location || o.pickup_location || 'DELSU Site II Gate'
-          };
-        });
+    // 2. Get Live Supabase orders if Supabase client is available
+    let liveOrders: Order[] = [];
+    if (supabase) {
+      try {
+        let query = supabase.from('orders').select('*, group_orders(*, products(*))').order('created_at', { ascending: false });
+        if (isUuid(buyerId)) {
+          query = query.eq('buyer_id', buyerId);
+        }
+        
+        let { data, error } = await query;
+        if (error || !data || data.length === 0) {
+          const raw = isUuid(buyerId) 
+            ? await supabase.from('orders').select('*').eq('buyer_id', buyerId).order('created_at', { ascending: false })
+            : await supabase.from('orders').select('*').order('created_at', { ascending: false });
+          if (raw.data && raw.data.length > 0) {
+            data = raw.data;
+          }
+        }
+
+        if (data && data.length > 0) {
+          liveOrders = data.map((o: any) => {
+            const prod = o.group_orders?.products;
+            return {
+              ...o,
+              product_id: prod?.id || o.product_id || '',
+              product_name: prod?.name || o.product_name || 'Group Purchase',
+              product_image: prod?.image_url || o.product_image || '',
+              portion_size: prod?.shares_per_person || o.portion_size || '',
+              unit_price: prod?.price_per_share || o.unit_price || 0,
+              trader_name: o.trader_name || 'KoboWise Store',
+              estimated_delivery: prod?.estimated_delivery || o.estimated_delivery || 'Same Day Delivery',
+              pickup_location: prod?.pickup_location || o.pickup_location || 'DELSU Site II Gate'
+            };
+          });
+        }
+      } catch (e) {
+        console.warn('Live getBuyerOrders error fallback:', e);
       }
-
-      // 2. Fallback: Direct select on orders table if relational query error/empty
-      const { data: rawOrders, error: rawError } = await supabase!
-        .from('orders')
-        .select('*')
-        .eq('buyer_id', buyerId)
-        .order('created_at', { ascending: false });
-
-      if (!rawError && rawOrders && rawOrders.length > 0) {
-        const products = await this.getProducts();
-        const groupOrders = await this.getGroupOrders();
-
-        return rawOrders.map(o => {
-          const grp = groupOrders.find(g => g.id === o.group_order_id);
-          const prod = grp ? products.find(p => p.id === grp.product_id) : null;
-          return {
-            ...o,
-            product_id: prod ? prod.id : (o.product_id || ''),
-            product_name: prod ? prod.name : (o.product_name || 'Group Purchase'),
-            product_image: prod ? prod.image_url : (o.product_image || ''),
-            portion_size: prod ? prod.shares_per_person : (o.portion_size || ''),
-            unit_price: prod ? prod.price_per_share : (o.unit_price || 0),
-            trader_name: prod ? prod.trader_name : (o.trader_name || 'KoboWise Store'),
-            estimated_delivery: prod ? prod.estimated_delivery : (o.estimated_delivery || 'Same Day Delivery'),
-            pickup_location: prod ? prod.pickup_location : (o.pickup_location || 'DELSU Site II Gate')
-          };
-        });
-      }
-    } catch (e) {
-      console.warn('Live getBuyerOrders error fallback:', e);
     }
 
-    // 3. Fallback to local storage backup orders
-    return getLocalBuyerOrders();
+    // 3. Merge local & live orders, avoiding duplicates
+    const mergedMap = new Map<string, Order>();
+    localOrders.forEach(o => {
+      const key = o.payment_reference || o.id;
+      mergedMap.set(key, o);
+    });
+    liveOrders.forEach(o => {
+      const key = o.payment_reference || o.id;
+      mergedMap.set(key, o);
+    });
+
+    return Array.from(mergedMap.values()).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
   },
 
   async getTraderOrders(traderId: string): Promise<Order[]> {
