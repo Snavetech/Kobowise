@@ -1531,7 +1531,7 @@ export const dbService = {
     );
   },
 
-  async getTraderOrders(traderId: string): Promise<Order[]> {
+  async getTraderOrders(_traderId?: string): Promise<Order[]> {
     // 1. Local Storage orders
     const localOrdersRaw = getLocal<Order[]>('orders', []);
     const groupOrders = getLocal<GroupOrder[]>('group_orders', []);
@@ -1539,21 +1539,15 @@ export const dbService = {
     const profiles = getLocal<Profile[]>('profiles', []);
 
     const localOrders: Order[] = localOrdersRaw
-      .filter(o => {
-        if (traderId === 'trader-1') return true;
-        const grp = groupOrders.find(g => g.id === o.group_order_id);
-        const prod = grp ? products.find(p => p.id === grp.product_id) : null;
-        return prod && prod.trader_id === traderId;
-      })
       .map(o => {
         const grp = groupOrders.find(g => g.id === o.group_order_id);
         const prod = grp ? products.find(p => p.id === grp.product_id) : null;
         const buyer = profiles.find(p => p.id === o.buyer_id);
         return {
           ...o,
-          product_name: prod ? prod.name : (o.product_name || 'Unknown Product'),
+          product_name: prod ? prod.name : (o.product_name || 'Group Purchase'),
           buyer_name: buyer ? buyer.full_name : (o.buyer_name || 'Student Buyer'),
-          pickup_location: prod ? prod.pickup_location : (o.pickup_location || '')
+          pickup_location: prod ? prod.pickup_location : (o.pickup_location || 'DELSU Site II Gate Shop 1B')
         };
       });
 
@@ -1583,11 +1577,6 @@ export const dbService = {
           } catch {}
 
           liveOrders = data
-            .filter((o: any) => {
-              if (traderId === 'trader-1') return true;
-              const prodTraderId = o.group_orders?.products?.trader_id || o.trader_id;
-              return !prodTraderId || prodTraderId === traderId;
-            })
             .map((o: any) => {
               const prod = o.group_orders?.products;
               const buyerName = profileMap.get(o.buyer_id) || o.buyer_name || 'Student Buyer';
@@ -1601,7 +1590,7 @@ export const dbService = {
                 unit_price: prod?.price_per_share || o.unit_price || 0,
                 trader_name: o.trader_name || 'KoboWise Store',
                 estimated_delivery: prod?.estimated_delivery || o.estimated_delivery || 'Same Day Delivery',
-                pickup_location: prod?.pickup_location || o.pickup_location || 'DELSU Site II Gate'
+                pickup_location: prod?.pickup_location || o.pickup_location || 'DELSU Site II Gate Shop 1B'
               };
             });
         }
