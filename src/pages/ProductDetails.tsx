@@ -126,8 +126,8 @@ export const ProductDetails: React.FC = () => {
     const groupsSub = mockRealtime.subscribe('groups_updated', (updatedGroups: GroupOrder[]) => {
       const currentProductId = productIdRef.current;
       if (currentProductId) {
-        const pendingGroup = updatedGroups.find(g => g.product_id === currentProductId && g.status === 'pending');
-        const currentGroup = pendingGroup || ((product && (product.stock_quantity === undefined || product.stock_quantity > 0)) ? {
+        const foundGroup = updatedGroups.find(g => g.product_id === currentProductId);
+        const currentGroup = foundGroup || ((product && (product.stock_quantity === undefined || product.stock_quantity > 0)) ? {
           id: `group-auto-${currentProductId}`,
           product_id: currentProductId,
           shares_purchased: 0,
@@ -163,11 +163,7 @@ export const ProductDetails: React.FC = () => {
 
   const handleAddReview = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !product) {
-      navigate('/login');
-      return;
-    }
-    if (!newComment.trim()) return;
+    if (!user || !product || !newComment.trim()) return;
 
     setReviewSubmitLoading(true);
     const newRev = await dbService.addReview(
@@ -175,7 +171,7 @@ export const ProductDetails: React.FC = () => {
       user.id,
       user.full_name,
       newRating,
-      newComment
+      newComment.trim()
     );
 
     if (newRev) {
@@ -186,11 +182,10 @@ export const ProductDetails: React.FC = () => {
     setReviewSubmitLoading(false);
   };
 
-  const activeGroup = (groupOrder && groupOrder.status === 'pending') ? groupOrder : null;
   const existingInCart = (product && cartItems) ? cartItems.find(item => item.product.id === product.id) : undefined;
-  const confirmedShares = activeGroup ? activeGroup.shares_purchased : 0;
-  const cartShares = (existingInCart && confirmedShares > 0) ? existingInCart.sharesBought : 0;
   const totalProductShares = product?.total_shares || 4;
+  const confirmedShares = groupOrder ? (groupOrder.status === 'completed' ? totalProductShares : groupOrder.shares_purchased) : 0;
+  const cartShares = existingInCart ? existingInCart.sharesBought : 0;
   const sharesPurchased = Math.min(totalProductShares, confirmedShares + cartShares);
   const sharesLeft = Math.max(0, totalProductShares - sharesPurchased);
   const maxAvailableShares = sharesLeft > 0 ? sharesLeft : Math.max(1, totalProductShares);

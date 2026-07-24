@@ -78,29 +78,34 @@ export const TraderDashboard: React.FC = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifDrawer, setShowNotifDrawer] = useState(false);
 
-  const loadTraderData = useCallback(async () => {
+  const loadTraderData = useCallback(async (isInitial = false) => {
     if (!user) return;
-    setLoading(true);
+    if (isInitial) setLoading(true);
     
-    const prods = await dbService.getProducts();
-    const traderProds = prods.filter(p => p.trader_id === user.id);
-    const cats = await dbService.getCategories();
-    const ords = await dbService.getTraderOrders(user.id);
-    const groups = await dbService.getGroupOrders();
-    const notifs = await dbService.getNotifications(user.id);
+    try {
+      const [prods, cats, ords, groups, notifs] = await Promise.all([
+        dbService.getProducts(),
+        dbService.getCategories(),
+        dbService.getTraderOrders(user.id),
+        dbService.getGroupOrders(),
+        dbService.getNotifications(user.id)
+      ]);
 
-    setProducts(traderProds);
-    setCategories(cats);
-    setOrders(ords);
-    setGroupOrders(groups);
-    setNotifications(notifs);
-    
-    // Auto-select first category in form
-    if (cats.length > 0 && !categoryId) {
-      setCategoryId(cats[0].id);
+      const traderProds = prods.filter(p => p.trader_id === user.id);
+
+      setProducts(traderProds);
+      setCategories(cats);
+      setOrders(ords);
+      setGroupOrders(groups);
+      setNotifications(notifs);
+      
+      // Auto-select first category in form
+      if (cats.length > 0 && !categoryId) {
+        setCategoryId(cats[0].id);
+      }
+    } finally {
+      if (isInitial) setLoading(false);
     }
-    
-    setLoading(false);
   }, [user, categoryId]);
 
   useEffect(() => {
@@ -113,11 +118,11 @@ export const TraderDashboard: React.FC = () => {
       return;
     }
     
-    loadTraderData();
+    loadTraderData(true);
 
-    // Subscribe to mock real-time events to refresh active groups/orders/notifications
+    // Subscribe to mock real-time events to refresh active groups/orders/notifications silently
     const groupsSub = mockRealtime.subscribe('groups_updated', () => {
-      loadTraderData();
+      loadTraderData(false);
     });
 
     const notifsSub = mockRealtime.subscribe('notifications_updated', () => {
@@ -199,7 +204,7 @@ export const TraderDashboard: React.FC = () => {
     }
 
     resetForm();
-    loadTraderData();
+    loadTraderData(false);
   };
 
   const handleEditClick = (p: Product) => {
@@ -229,17 +234,20 @@ export const TraderDashboard: React.FC = () => {
         const deleted = await dbService.deleteProduct(productId);
         if (deleted) {
           addToast('Product deleted successfully.', 'success');
-          loadTraderData();
+          loadTraderData(false);
         }
       }
     });
   };
 
   const handleStatusChange = async (orderId: string, nextStatus: Order['status']) => {
+    // Optimistic UI update for instant status change without full page reload or delay!
+    setOrders(prev => prev.map(o => (o.id === orderId || o.payment_reference === orderId) ? { ...o, status: nextStatus } : o));
+    
     const success = await dbService.updateOrderStatus(orderId, nextStatus);
     if (success) {
       addToast(`Order marked as: ${nextStatus.replace(/_/g, ' ')}`, 'success');
-      loadTraderData();
+      loadTraderData(false);
     }
   };
 

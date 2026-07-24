@@ -156,9 +156,9 @@ export const Home: React.FC = () => {
 
   const getEffectiveSharesPurchased = (productId: string, totalShares: number) => {
     const g = getProductGroup(productId);
-    const confirmedShares = (g && g.status === 'pending') ? g.shares_purchased : 0;
+    const confirmedShares = g ? (g.status === 'completed' ? totalShares : g.shares_purchased) : 0;
     const cartItem = cartItems.find(item => item.product.id === productId);
-    const cartShares = (cartItem && confirmedShares > 0) ? cartItem.sharesBought : 0;
+    const cartShares = cartItem ? cartItem.sharesBought : 0;
     return Math.min(totalShares, confirmedShares + cartShares);
   };
 

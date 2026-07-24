@@ -42,13 +42,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     setIsWished(added);
   };
   const isOutOfStock = product.stock_quantity !== undefined && product.stock_quantity <= 0;
-  const activeGroup = (groupOrder && groupOrder.status === 'pending' && groupOrder.shares_purchased < product.total_shares) ? groupOrder : null;
-  const confirmedShares = activeGroup ? activeGroup.shares_purchased : 0;
+  const confirmedShares = groupOrder ? (groupOrder.status === 'completed' ? product.total_shares : groupOrder.shares_purchased) : 0;
   const cartShares = existingCartItem ? existingCartItem.sharesBought : 0;
   const sharesPurchased = Math.min(product.total_shares, confirmedShares + cartShares);
   const totalShares = product.total_shares;
   const sharesLeft = Math.max(0, totalShares - sharesPurchased);
-  const isComplete = isOutOfStock;
+  const isComplete = isOutOfStock || groupOrder?.status === 'completed' || sharesPurchased >= totalShares;
 
   const percentage = Math.min(100, Math.max(0, (sharesPurchased / totalShares) * 100));
   
