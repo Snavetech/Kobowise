@@ -42,46 +42,40 @@ const formatAuthError = (err: any): string => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     const initializeAuth = async () => {
-      if (isDemoMode) {
-        // Load mock user session
-        const savedSessionUser = localStorage.getItem('kobowise_session_user');
-        if (savedSessionUser) {
-          const profile = await dbService.getProfile(savedSessionUser);
+      // Check stored session user
+      const storedUserId = localStorage.getItem('kobowise_session_user');
+      
+      if (storedUserId) {
+        const profile = await dbService.getProfile(storedUserId);
+        if (profile) {
           setUser(profile);
         }
-        // No auto-login — user must explicitly sign in or use Quick Demo Access
-        setLoading(false);
-      } else {
-        // Get initial session
-        const { data: { session } } = await supabase!.auth.getSession();
-        if (session?.user) {
-          const profile = await dbService.getProfile(session.user.id);
-          if (profile) {
-            setUser({ ...profile, email: profile.email || session.user.email });
-          }
-        }
-        
-        // Listen to auth changes
-        const { data: { subscription } } = supabase!.auth.onAuthStateChange(async (_event, session) => {
+      }
+
+      // Supabase auth state listener
+      if (!isDemoMode && supabase) {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
           if (session?.user) {
             const profile = await dbService.getProfile(session.user.id);
             if (profile) {
               setUser({ ...profile, email: profile.email || session.user.email });
             }
-          } else {
+          } else if (event === 'SIGNED_OUT') {
             setUser(null);
+            localStorage.removeItem('kobowise_session_user');
           }
-          setLoading(false);
         });
 
         return () => {
           subscription.unsubscribe();
         };
       }
+
+      setLoading(false);
     };
 
     initializeAuth();
@@ -93,7 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const isDemoEmail = email.includes('buyer@delsu.edu') || email.includes('trader@delsu.edu');
       
       if (isDemoMode || isDemoEmail) {
-        if (isDemoEmail) {
+        if (isDemoEmail && !isSupabaseConfigured) {
           localStorage.setItem('kobowise_use_demo_mode', 'true');
         }
         // Ensure mock database is seeded in localStorage

@@ -4,8 +4,10 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey && supabaseUrl !== 'YOUR_SUPABASE_URL');
+
 // Determine if we should use Mock/Demo Mode
-export const isDemoMode = !supabaseUrl || !supabaseAnonKey || supabaseUrl === 'YOUR_SUPABASE_URL' || localStorage.getItem('kobowise_use_demo_mode') === 'true';
+export const isDemoMode = !isSupabaseConfigured || localStorage.getItem('kobowise_use_demo_mode') === 'true';
 
 console.log(
   isDemoMode 
@@ -14,7 +16,7 @@ console.log(
 );
 
 // Initialize real client if keys are available
-export const supabase = !isDemoMode ? createClient(supabaseUrl, supabaseAnonKey) : null;
+export const supabase = isSupabaseConfigured ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
 // Helper to check if string is a valid PostgreSQL UUID
 export function isUuid(str?: string): boolean {
@@ -1528,102 +1530,162 @@ export const dbService = {
   },
 
   async getTraderOrders(traderId: string): Promise<Order[]> {
-    if (isDemoMode || !isUuid(traderId)) {
-      const orders = getLocal<Order[]>('orders', []);
-      const groupOrders = getLocal<GroupOrder[]>('group_orders', []);
-      const products = await this.getProducts();
-      const profiles = getLocal<Profile[]>('profiles', []);
+    // 1. Local Storage orders
+    const localOrdersRaw = getLocal<Order[]>('orders', []);
+    const groupOrders = getLocal<GroupOrder[]>('group_orders', []);
+    const products = await this.getProducts();
+    const profiles = getLocal<Profile[]>('profiles', []);
 
-      return orders
-        .filter(o => {
-          const grp = groupOrders.find(g => g.id === o.group_order_id);
-          const prod = grp ? products.find(p => p.id === grp.product_id) : null;
-          return prod && prod.trader_id === traderId;
-        })
-        .map(o => {
-          const grp = groupOrders.find(g => g.id === o.group_order_id);
-          const prod = grp ? products.find(p => p.id === grp.product_id) : null;
-          const buyer = profiles.find(p => p.id === o.buyer_id);
-          return {
-            ...o,
-            product_name: prod ? prod.name : 'Unknown Product',
-            buyer_name: buyer ? buyer.full_name : 'Student Buyer',
-            pickup_location: prod ? prod.pickup_location : ''
-          };
-        })
-        .sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    const localOrders: Order[] = localOrdersRaw
+      .filter(o => {
+        if (traderId === 'trader-1') return true;
+        const grp = groupOrders.find(g => g.id === o.group_order_id);
+        const prod = grp ? products.find(p => p.id === grp.product_id) : null;
+        return prod && prod.trader_id === traderId;
+      })
+      .map(o => {
+        const grp = groupOrders.find(g => g.id === o.group_order_id);
+        const prod = grp ? products.find(p => p.id === grp.product_id) : null;
+        const buyer = profiles.find(p => p.id === o.buyer_id);
+        return {
+          ...o,
+          product_name: prod ? prod.name : (o.product_name || 'Unknown Product'),
+          buyer_name: buyer ? buyer.full_name : (o.buyer_name || 'Student Buyer'),
+          pickup_location: prod ? prod.pickup_location : (o.pickup_location || '')
+        };
+      });
+
+    // 2. Live Supabase orders (if Supabase client exists)
+    let liveOrders: Order[] = [];
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('*, profiles:buyer_id(full_name), group_orders(*, products(*, profiles:trader_id(full_name)))')
+          .order('created_at', { ascending: false });
+
+        if (!error && data && data.length > 0) {
+          liveOrders = data
+            .filter((o: any) => {
+              if (traderId === 'trader-1') return true;
+              const prodTraderId = o.group_orders?.products?.trader_id;
+              return prodTraderId === traderId;
+            })
+            .map((o: any) => {
+              const prod = o.group_orders?.products;
+              const buyerProf = o.profiles;
+              return {
+                ...o,
+                buyer_name: buyerProf?.full_name || o.buyer_name || 'Student Buyer',
+                product_id: prod?.id || o.product_id || '',
+                product_name: prod?.name || o.product_name || 'Group Purchase',
+                product_image: prod?.image_url || o.product_image || '',
+                portion_size: prod?.shares_per_person || o.portion_size || '',
+                unit_price: prod?.price_per_share || o.unit_price || 0,
+                trader_name: prod?.profiles?.full_name || o.trader_name || 'KoboWise Store',
+                estimated_delivery: prod?.estimated_delivery || o.estimated_delivery || 'Same Day Delivery',
+                pickup_location: prod?.pickup_location || o.pickup_location || 'DELSU Site II Gate'
+              };
+            });
+        }
+      } catch (e) {
+        console.warn('Live getTraderOrders error fallback:', e);
+      }
     }
 
-    const { data, error } = await supabase!
-      .from('orders')
-      .select('*, profiles(full_name), group_orders!inner(*, products!inner(*))')
-      .eq('group_orders.products.trader_id', traderId)
-      .order('created_at', { ascending: false });
+    // 3. Merge liveOrders and localOrders, avoiding duplicates
+    const mergedMap = new Map<string, Order>();
+    
+    // Add local orders first
+    localOrders.forEach(o => {
+      const key = o.payment_reference || o.id;
+      mergedMap.set(key, o);
+    });
 
-    if (error) return [];
+    // Add/overwrite with live orders (live orders take precedence)
+    liveOrders.forEach(o => {
+      const key = o.payment_reference || o.id;
+      mergedMap.set(key, o);
+    });
 
-    return data.map(o => ({
-      ...o,
-      buyer_name: o.profiles?.full_name || 'Student Buyer',
-      product_name: o.group_orders?.products?.name || 'Unknown Product',
-      pickup_location: o.group_orders?.products?.pickup_location || ''
-    }));
+    return Array.from(mergedMap.values()).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
   },
 
   async updateOrderStatus(orderId: string, status: Order['status']): Promise<boolean> {
-    if (isDemoMode || !isUuid(orderId)) {
-      const orders = getLocal<Order[]>('orders', []);
-      const updated = orders.map(o => {
-        if (o.id === orderId) {
-          // Notify buyer of status update
-          const notifications = getLocal<Notification[]>('notifications', []);
-          const products = getLocal<Product[]>('products', []);
-          const groupOrders = getLocal<GroupOrder[]>('group_orders', []);
-          const grp = groupOrders.find(g => g.id === o.group_order_id);
-          const prod = grp ? products.find(p => p.id === grp.product_id) : null;
+    let success = false;
 
-          let title = 'Order Update';
-          let message = `Your order status was updated to: ${status.replace(/_/g, ' ')}.`;
-          if (status === 'processing') {
-            title = 'Order Processing';
-            message = `The seller has received your order for "${prod ? prod.name : 'your bulk buy'}" and is confirming payment & packaging the item.`;
-          } else if (status === 'ready_for_pickup') {
-            title = 'Processed Order — Ready!';
-            message = `Processed Order! The seller has finished processing your order for "${prod ? prod.name : 'your bulk buy'}". Your item is packed and ready for collection at ${prod ? prod.pickup_location : 'the pickup point'}.`;
-          } else if (status === 'delivered') {
-            title = 'Order Delivered';
-            message = `Collected! Your portion of "${prod ? prod.name : 'your bulk buy'}" has been marked as delivered. Thank you!`;
-          } else if (status === 'refunded') {
-            title = 'Order Refunded';
-            message = `Refunded! ₦${o.total_price} for "${prod ? prod.name : 'your bulk buy'}" has been refunded to your account.`;
-          }
+    // 1. Update local storage if present
+    const orders = getLocal<Order[]>('orders', []);
+    const targetOrder = orders.find(o => o.id === orderId || o.payment_reference === orderId);
 
-          notifications.push({
-            id: `notif-${Date.now()}`,
-            user_id: o.buyer_id,
-            title,
-            message,
-            is_read: false,
-            created_at: new Date().toISOString()
-          });
-          setLocal('notifications', notifications);
-          mockRealtime.emit('notifications_updated', {});
-          
-          return { ...o, status };
-        }
-        return o;
+    const updatedOrders = orders.map(o => {
+      if (o.id === orderId || o.payment_reference === orderId) {
+        return { ...o, status };
+      }
+      return o;
+    });
+    setLocal('orders', updatedOrders);
+    success = true;
+
+    // Create local notification for buyer
+    const buyerId = targetOrder?.buyer_id;
+    if (buyerId) {
+      const notifications = getLocal<Notification[]>('notifications', []);
+      let title = 'Order Update';
+      let message = `Your order status was updated to: ${status.replace(/_/g, ' ')}.`;
+      if (status === 'processing') {
+        title = 'Order Processing';
+        message = 'The seller has received your order and is confirming payment & packaging the item.';
+      } else if (status === 'ready_for_pickup') {
+        title = 'Processed Order — Ready!';
+        message = `Processed Order! Your item is packed and ready for collection at the pickup point.`;
+      } else if (status === 'delivered') {
+        title = 'Order Delivered';
+        message = `Collected! Your portion has been marked as delivered. Thank you!`;
+      } else if (status === 'refunded') {
+        title = 'Order Refunded';
+        message = `Refunded! ₦${targetOrder?.total_price || ''} has been refunded to your account.`;
+      }
+
+      notifications.push({
+        id: `notif-${Date.now()}`,
+        user_id: buyerId,
+        title,
+        message,
+        is_read: false,
+        created_at: new Date().toISOString()
       });
-      setLocal('orders', updated);
-      return true;
+      setLocal('notifications', notifications);
     }
 
-    const { error } = await supabase!
-      .from('orders')
-      .update({ status })
-      .eq('id', orderId);
+    // 2. Update Supabase if available
+    if (supabase) {
+      try {
+        if (isUuid(orderId)) {
+          const { error } = await supabase.from('orders').update({ status }).eq('id', orderId);
+          if (!error) success = true;
+        } else {
+          const { error } = await supabase.from('orders').update({ status }).eq('payment_reference', orderId);
+          if (!error) success = true;
+        }
+
+        if (buyerId && isUuid(buyerId)) {
+          await supabase.from('notifications').insert({
+            user_id: buyerId,
+            title: `Order Status: ${status.replace(/_/g, ' ')}`,
+            message: `Your order status has been updated to ${status.replace(/_/g, ' ')}.`
+          });
+        }
+      } catch (e) {
+        console.warn('Supabase updateOrderStatus error:', e);
+      }
+    }
 
     mockRealtime.emit('notifications_updated', {});
-    return !error;
+    mockRealtime.emit('groups_updated', {});
+    return success;
   },
 
   async requestRefund(orderId: string, buyerId: string, reason: string): Promise<boolean> {
