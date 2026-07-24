@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase, isDemoMode, dbService, type Profile, initializeMockDb } from '../supabase';
+import { supabase, isDemoMode, isSupabaseConfigured, dbService, type Profile, initializeMockDb } from '../supabase';
 
 interface AuthContextType {
   user: Profile | null;
