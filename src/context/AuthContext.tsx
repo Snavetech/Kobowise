@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase, isDemoMode, isSupabaseConfigured, dbService, type Profile, initializeMockDb } from '../supabase';
+import { supabase, isDemoMode, dbService, type Profile, initializeMockDb } from '../supabase';
 
 interface AuthContextType {
   user: Profile | null;
@@ -51,15 +51,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         initializeMockDb();
         const storedUserId = localStorage.getItem('kobowise_session_user');
+        const isForcedDemo = localStorage.getItem('kobowise_use_demo_mode') === 'true';
         
         if (storedUserId) {
           const profile = await dbService.getProfile(storedUserId);
           if (profile && isMounted) {
             setUser(profile);
           }
-        }
-
-        if (supabase) {
+        } else if (!isForcedDemo && supabase) {
           const { data: { session } } = await supabase.auth.getSession();
           if (session?.user && isMounted) {
             const profile = await dbService.getProfile(session.user.id);
@@ -82,6 +81,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let subscription: any = null;
     if (supabase) {
       const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+        const isForcedDemo = localStorage.getItem('kobowise_use_demo_mode') === 'true';
+        if (isForcedDemo) return;
+
         if (session?.user && isMounted) {
           const profile = await dbService.getProfile(session.user.id);
           if (profile) {
@@ -106,10 +108,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const isDemoEmail = email.includes('buyer@delsu.edu') || email.includes('trader@delsu.edu');
+      const cleanEmail = email.trim().toLowerCase();
+      const isDemoEmail = cleanEmail.includes('buyer@delsu.edu') || cleanEmail.includes('trader@delsu.edu');
       
       if (isDemoMode || isDemoEmail) {
-        if (isDemoEmail && !isSupabaseConfigured) {
+        if (isDemoEmail) {
           localStorage.setItem('kobowise_use_demo_mode', 'true');
         }
         // Ensure mock database is seeded in localStorage
@@ -118,7 +121,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const profiles = JSON.parse(localStorage.getItem('kobowise_profiles') || '[]');
         let profile = null;
 
-        const cleanEmail = email.trim().toLowerCase();
         if (cleanEmail === 'trader@delsu.edu') {
           profile = profiles.find((p: any) => p.role === 'trader');
         } else if (cleanEmail === 'buyer@delsu.edu') {
