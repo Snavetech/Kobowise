@@ -2071,53 +2071,82 @@ export const dbService = {
 
   // --- WISHLIST ---
   async getWishlist(buyerId: string): Promise<Product[]> {
-    if (isDemoMode || !isUuid(buyerId)) {
-      const wishlist = getLocal<any[]>('wishlist', []);
-      const userWish = wishlist.filter(w => w.buyer_id === buyerId).map(w => w.product_id);
-      const products = await this.getProducts();
-      return products.filter(p => userWish.includes(p.id));
+    // 1. Get local storage wishlisted products
+    const localWishlist = getLocal<any[]>('wishlist', []);
+    const localProductIds = localWishlist.filter(w => w.buyer_id === buyerId).map(w => w.product_id);
+    const allProducts = await this.getProducts();
+    const localWishProducts = allProducts.filter(p => localProductIds.includes(p.id));
+
+    // 2. Get live Supabase wishlisted products if available
+    let liveWishProducts: Product[] = [];
+    if (supabase && isUuid(buyerId)) {
+      try {
+        const { data, error } = await supabase
+          .from('wishlist')
+          .select('*, products(*, profiles(full_name))')
+          .eq('buyer_id', buyerId);
+
+        if (!error && data && data.length > 0) {
+          liveWishProducts = data
+            .filter((w: any) => w.products)
+            .map((w: any) => ({
+              ...w.products,
+              trader_name: w.products?.profiles?.full_name || 'Local Trader'
+            }));
+        }
+      } catch (e) {
+        console.warn('Live getWishlist error fallback:', e);
+      }
     }
-    const { data, error } = await supabase!
-      .from('wishlist')
-      .select('*, products(*, profiles(full_name))')
-      .eq('buyer_id', buyerId);
-    if (error) return [];
-    return data.map(w => ({
-      ...w.products,
-      trader_name: w.products?.profiles?.full_name || 'Local Trader'
-    }));
+
+    // 3. Merge local & live wishlisted products, deduplicating by product ID
+    const mergedMap = new Map<string, Product>();
+    localWishProducts.forEach(p => mergedMap.set(p.id, p));
+    liveWishProducts.forEach(p => mergedMap.set(p.id, p));
+
+    return Array.from(mergedMap.values());
   },
 
   async toggleWishlist(buyerId: string, productId: string): Promise<boolean> {
-    if (isDemoMode || !isUuid(buyerId) || !isUuid(productId)) {
-      const wishlist = getLocal<any[]>('wishlist', []);
-      const index = wishlist.findIndex(w => w.buyer_id === buyerId && w.product_id === productId);
-      if (index > -1) {
-        wishlist.splice(index, 1);
-        setLocal('wishlist', wishlist);
-        return false; // Removed
-      } else {
-        wishlist.push({ id: `wish-${Date.now()}`, buyer_id: buyerId, product_id: productId });
-        setLocal('wishlist', wishlist);
-        return true; // Added
+    // 1. Always update local storage wishlist
+    const wishlist = getLocal<any[]>('wishlist', []);
+    const localIndex = wishlist.findIndex(w => w.buyer_id === buyerId && w.product_id === productId);
+    let isNowWishlisted = false;
+
+    if (localIndex > -1) {
+      wishlist.splice(localIndex, 1);
+      isNowWishlisted = false;
+    } else {
+      wishlist.push({ id: `wish-${Date.now()}`, buyer_id: buyerId, product_id: productId });
+      isNowWishlisted = true;
+    }
+    setLocal('wishlist', wishlist);
+
+    // 2. Sync with live Supabase database if available and IDs are valid UUIDs
+    if (supabase && isUuid(buyerId) && isUuid(productId)) {
+      try {
+        const { data } = await supabase
+          .from('wishlist')
+          .select('id')
+          .eq('buyer_id', buyerId)
+          .eq('product_id', productId)
+          .maybeSingle();
+
+        if (data) {
+          if (!isNowWishlisted) {
+            await supabase.from('wishlist').delete().eq('id', data.id);
+          }
+        } else {
+          if (isNowWishlisted) {
+            await supabase.from('wishlist').insert({ buyer_id: buyerId, product_id: productId });
+          }
+        }
+      } catch (e) {
+        console.warn('Live toggleWishlist error:', e);
       }
     }
-    
-    // Check if exists
-    const { data } = await supabase!
-      .from('wishlist')
-      .select('id')
-      .eq('buyer_id', buyerId)
-      .eq('product_id', productId)
-      .maybeSingle();
 
-    if (data) {
-      await supabase!.from('wishlist').delete().eq('id', data.id);
-      return false;
-    } else {
-      await supabase!.from('wishlist').insert({ buyer_id: buyerId, product_id: productId });
-      return true;
-    }
+    return isNowWishlisted;
   },
 
   // --- NOTIFICATIONS ---
