@@ -858,34 +858,46 @@ if (isDemoMode) {
 export const dbService = {
   // --- AUTHENTICATION & PROFILES ---
   async getProfile(userId: string): Promise<Profile | null> {
-    if (isDemoMode) {
-      const profiles = getLocal<Profile[]>('profiles', []);
-      return profiles.find(p => p.id === userId) || null;
+    // 1. Check local storage profiles first (e.g. trader-1, buyer-1, or demo accounts)
+    const localProfiles = getLocal<Profile[]>('profiles', MOCK_PROFILES);
+    const localProf = localProfiles.find(p => p.id === userId);
+    if (localProf) return localProf;
+
+    // 2. Query Supabase profiles if userId is a valid UUID
+    if (supabase && isUuid(userId)) {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
+        if (!error && data) return data;
+      } catch (e) {
+        console.warn('getProfile Supabase error:', e);
+      }
     }
-    const { data, error } = await supabase!
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-    if (error) return null;
-    return data;
+    return null;
   },
 
   async updateProfile(userId: string, updates: Partial<Profile>): Promise<Profile | null> {
-    if (isDemoMode) {
-      const profiles = getLocal<Profile[]>('profiles', []);
-      const updated = profiles.map(p => p.id === userId ? { ...p, ...updates } : p);
-      setLocal('profiles', updated);
-      return updated.find(p => p.id === userId) || null;
+    const profiles = getLocal<Profile[]>('profiles', MOCK_PROFILES);
+    const updated = profiles.map(p => p.id === userId ? { ...p, ...updates } : p);
+    setLocal('profiles', updated);
+
+    if (supabase && isUuid(userId)) {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .update(updates)
+          .eq('id', userId)
+          .select()
+          .single();
+        if (!error && data) return data;
+      } catch (e) {
+        console.warn('updateProfile Supabase error:', e);
+      }
     }
-    const { data, error } = await supabase!
-      .from('profiles')
-      .update(updates)
-      .eq('id', userId)
-      .select()
-      .single();
-    if (error) return null;
-    return data;
+    return updated.find(p => p.id === userId) || null;
   },
 
   // --- CATEGORIES ---

@@ -45,40 +45,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    const initializeAuth = async () => {
-      // Check stored session user
-      const storedUserId = localStorage.getItem('kobowise_session_user');
-      
-      if (storedUserId) {
-        const profile = await dbService.getProfile(storedUserId);
-        if (profile) {
-          setUser(profile);
-        }
-      }
+    let isMounted = true;
 
-      // Supabase auth state listener
-      if (!isDemoMode && supabase) {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-          if (session?.user) {
+    const initializeAuth = async () => {
+      try {
+        initializeMockDb();
+        const storedUserId = localStorage.getItem('kobowise_session_user');
+        
+        if (storedUserId) {
+          const profile = await dbService.getProfile(storedUserId);
+          if (profile && isMounted) {
+            setUser(profile);
+          }
+        }
+
+        if (supabase) {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user && isMounted) {
             const profile = await dbService.getProfile(session.user.id);
             if (profile) {
               setUser({ ...profile, email: profile.email || session.user.email });
             }
-          } else if (event === 'SIGNED_OUT') {
-            setUser(null);
-            localStorage.removeItem('kobowise_session_user');
           }
-        });
-
-        return () => {
-          subscription.unsubscribe();
-        };
+        }
+      } catch (err) {
+        console.error('Error initializing auth session:', err);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
-
-      setLoading(false);
     };
 
     initializeAuth();
+
+    let subscription: any = null;
+    if (supabase) {
+      const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (session?.user && isMounted) {
+          const profile = await dbService.getProfile(session.user.id);
+          if (profile) {
+            setUser({ ...profile, email: profile.email || session.user.email });
+          }
+        } else if (event === 'SIGNED_OUT' && isMounted) {
+          setUser(null);
+          localStorage.removeItem('kobowise_session_user');
+        }
+      });
+      subscription = data.subscription;
+    }
+
+    return () => {
+      isMounted = false;
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
