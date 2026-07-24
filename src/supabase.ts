@@ -1413,12 +1413,32 @@ export const dbService = {
     mockRealtime.emit('groups_updated', allGroups);
     mockRealtime.emit('notifications_updated', {});
 
-    return { ...order, payment_reference: finalRef };
+    const createdLiveOrder: Order = { 
+      ...order, 
+      payment_reference: finalRef,
+      product_id: product.id,
+      product_name: product.name,
+      product_image: product.image_url,
+      portion_size: product.shares_per_person,
+      unit_price: product.price_per_share,
+      trader_name: product.trader_name || 'KoboWise Store',
+      estimated_delivery: product.estimated_delivery,
+      pickup_location: product.pickup_location
+    };
+
+    // Save local backup so orders are immediately accessible even if relational queries or network fail
+    const localOrders = getLocal<Order[]>('orders', []);
+    if (!localOrders.some(o => o.id === order.id || o.payment_reference === finalRef)) {
+      localOrders.push(createdLiveOrder);
+      setLocal('orders', localOrders);
+    }
+
+    return createdLiveOrder;
   },
 
   // --- ORDERS ---
   async getBuyerOrders(buyerId: string): Promise<Order[]> {
-    if (isDemoMode || !isUuid(buyerId)) {
+    const getLocalBuyerOrders = async (): Promise<Order[]> => {
       const orders = getLocal<Order[]>('orders', []);
       const groupOrders = getLocal<GroupOrder[]>('group_orders', []);
       const products = await this.getProducts();
@@ -1430,41 +1450,81 @@ export const dbService = {
           const prod = grp ? products.find(p => p.id === grp.product_id) : null;
           return {
             ...o,
-            product_id: prod ? prod.id : '',
-            product_name: prod ? prod.name : 'Unknown Product',
-            product_image: prod ? prod.image_url : '',
-            portion_size: prod ? prod.shares_per_person : '',
-            unit_price: prod ? prod.price_per_share : 0,
-            trader_name: prod ? prod.trader_name : 'KoboWise Main Market Store',
-            estimated_delivery: prod ? prod.estimated_delivery : 'Same Day Delivery',
-            pickup_location: prod ? prod.pickup_location : 'DELSU Site II Gate'
+            product_id: prod ? prod.id : (o.product_id || ''),
+            product_name: prod ? prod.name : (o.product_name || 'Group Purchase'),
+            product_image: prod ? prod.image_url : (o.product_image || ''),
+            portion_size: prod ? prod.shares_per_person : (o.portion_size || ''),
+            unit_price: prod ? prod.price_per_share : (o.unit_price || 0),
+            trader_name: prod ? prod.trader_name : (o.trader_name || 'KoboWise Store'),
+            estimated_delivery: prod ? prod.estimated_delivery : (o.estimated_delivery || 'Same Day Delivery'),
+            pickup_location: prod ? prod.pickup_location : (o.pickup_location || 'DELSU Site II Gate')
           };
         })
         .sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    };
+
+    if (isDemoMode || !isUuid(buyerId)) {
+      return getLocalBuyerOrders();
     }
     
-    const { data, error } = await supabase!
-      .from('orders')
-      .select('*, group_orders(*, products(*, profiles(full_name)))')
-      .eq('buyer_id', buyerId)
-      .order('created_at', { ascending: false });
+    try {
+      // 1. Primary: Relational query with joins
+      const { data, error } = await supabase!
+        .from('orders')
+        .select('*, group_orders(*, products(*, profiles(full_name)))')
+        .eq('buyer_id', buyerId)
+        .order('created_at', { ascending: false });
 
-    if (error) return [];
-    
-    return data.map(o => {
-      const prod = o.group_orders?.products;
-      return {
-        ...o,
-        product_id: prod?.id || '',
-        product_name: prod?.name || 'Unknown Product',
-        product_image: prod?.image_url || '',
-        portion_size: prod?.shares_per_person || '',
-        unit_price: prod?.price_per_share || 0,
-        trader_name: prod?.profiles?.full_name || 'KoboWise Main Market Store',
-        estimated_delivery: prod?.estimated_delivery || 'Same Day Delivery',
-        pickup_location: prod?.pickup_location || 'DELSU Site II Gate'
-      };
-    });
+      if (!error && data && data.length > 0) {
+        return data.map(o => {
+          const prod = o.group_orders?.products;
+          return {
+            ...o,
+            product_id: prod?.id || o.product_id || '',
+            product_name: prod?.name || o.product_name || 'Group Purchase',
+            product_image: prod?.image_url || o.product_image || '',
+            portion_size: prod?.shares_per_person || o.portion_size || '',
+            unit_price: prod?.price_per_share || o.unit_price || 0,
+            trader_name: prod?.profiles?.full_name || o.trader_name || 'KoboWise Store',
+            estimated_delivery: prod?.estimated_delivery || o.estimated_delivery || 'Same Day Delivery',
+            pickup_location: prod?.pickup_location || o.pickup_location || 'DELSU Site II Gate'
+          };
+        });
+      }
+
+      // 2. Fallback: Direct select on orders table if relational query error/empty
+      const { data: rawOrders, error: rawError } = await supabase!
+        .from('orders')
+        .select('*')
+        .eq('buyer_id', buyerId)
+        .order('created_at', { ascending: false });
+
+      if (!rawError && rawOrders && rawOrders.length > 0) {
+        const products = await this.getProducts();
+        const groupOrders = await this.getGroupOrders();
+
+        return rawOrders.map(o => {
+          const grp = groupOrders.find(g => g.id === o.group_order_id);
+          const prod = grp ? products.find(p => p.id === grp.product_id) : null;
+          return {
+            ...o,
+            product_id: prod ? prod.id : (o.product_id || ''),
+            product_name: prod ? prod.name : (o.product_name || 'Group Purchase'),
+            product_image: prod ? prod.image_url : (o.product_image || ''),
+            portion_size: prod ? prod.shares_per_person : (o.portion_size || ''),
+            unit_price: prod ? prod.price_per_share : (o.unit_price || 0),
+            trader_name: prod ? prod.trader_name : (o.trader_name || 'KoboWise Store'),
+            estimated_delivery: prod ? prod.estimated_delivery : (o.estimated_delivery || 'Same Day Delivery'),
+            pickup_location: prod ? prod.pickup_location : (o.pickup_location || 'DELSU Site II Gate')
+          };
+        });
+      }
+    } catch (e) {
+      console.warn('Live getBuyerOrders error fallback:', e);
+    }
+
+    // 3. Fallback to local storage backup orders
+    return getLocalBuyerOrders();
   },
 
   async getTraderOrders(traderId: string): Promise<Order[]> {
