@@ -250,27 +250,27 @@ CREATE POLICY "Authenticated users can update group orders" ON public.group_orde
 
 -- Order Items Policies
 DROP POLICY IF EXISTS "Users can view their own order items" ON public.order_items;
-CREATE POLICY "Users can view their own order items" ON public.order_items FOR SELECT USING (auth.uid() = buyer_id OR EXISTS (SELECT 1 FROM public.group_orders go JOIN public.products p ON go.product_id = p.id WHERE go.id = group_order_id AND p.trader_id = auth.uid()));
+CREATE POLICY "Order items are viewable by everyone" ON public.order_items FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "Users can add order items" ON public.order_items;
-CREATE POLICY "Users can add order items" ON public.order_items FOR INSERT WITH CHECK (auth.uid() = buyer_id);
+CREATE POLICY "Anyone can add order items" ON public.order_items FOR INSERT WITH CHECK (true);
 
 -- Orders Policies
 DROP POLICY IF EXISTS "Users can view their own orders" ON public.orders;
-CREATE POLICY "Users can view their own orders" ON public.orders FOR SELECT USING (auth.uid() = buyer_id OR EXISTS (SELECT 1 FROM public.group_orders go JOIN public.products p ON go.product_id = p.id WHERE go.id = group_order_id AND p.trader_id = auth.uid()));
+CREATE POLICY "Orders are viewable by everyone" ON public.orders FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "Users can insert their own orders" ON public.orders;
-CREATE POLICY "Users can insert their own orders" ON public.orders FOR INSERT WITH CHECK (auth.uid() = buyer_id);
+CREATE POLICY "Anyone can insert orders" ON public.orders FOR INSERT WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Traders can update orders of their products" ON public.orders;
-CREATE POLICY "Traders can update orders of their products" ON public.orders FOR UPDATE USING (EXISTS (SELECT 1 FROM public.group_orders go JOIN public.products p ON go.product_id = p.id WHERE go.id = group_order_id AND p.trader_id = auth.uid()));
+CREATE POLICY "Anyone can update orders" ON public.orders FOR UPDATE USING (true);
 
 -- Payments Policies
 DROP POLICY IF EXISTS "Users can view their own payments" ON public.payments;
-CREATE POLICY "Users can view their own payments" ON public.payments FOR SELECT USING (EXISTS (SELECT 1 FROM public.orders o WHERE o.id = order_id AND o.buyer_id = auth.uid()));
+CREATE POLICY "Payments are viewable by everyone" ON public.payments FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "Users can insert payments" ON public.payments;
-CREATE POLICY "Users can insert payments" ON public.payments FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM public.orders o WHERE o.id = order_id AND o.buyer_id = auth.uid()));
+CREATE POLICY "Anyone can insert payments" ON public.payments FOR INSERT WITH CHECK (true);
 
 -- Reviews Policies
 DROP POLICY IF EXISTS "Reviews are viewable by everyone" ON public.reviews;

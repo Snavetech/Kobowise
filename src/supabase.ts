@@ -1571,30 +1571,45 @@ export const dbService = {
     let liveOrders: Order[] = [];
     if (supabase) {
       try {
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from('orders')
-          .select('*, profiles:buyer_id(full_name), group_orders(*, products(*, profiles:trader_id(full_name)))')
+          .select('*, group_orders(*, products(*))')
           .order('created_at', { ascending: false });
 
-        if (!error && data && data.length > 0) {
+        if (error || !data || data.length === 0) {
+          const raw = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+          if (raw.data && raw.data.length > 0) {
+            data = raw.data;
+          }
+        }
+
+        if (data && data.length > 0) {
+          let profileMap = new Map<string, string>();
+          try {
+            const allProfiles = await supabase.from('profiles').select('*');
+            if (allProfiles.data) {
+              allProfiles.data.forEach((p: any) => profileMap.set(p.id, p.full_name));
+            }
+          } catch {}
+
           liveOrders = data
             .filter((o: any) => {
               if (traderId === 'trader-1') return true;
-              const prodTraderId = o.group_orders?.products?.trader_id;
-              return prodTraderId === traderId;
+              const prodTraderId = o.group_orders?.products?.trader_id || o.trader_id;
+              return !prodTraderId || prodTraderId === traderId;
             })
             .map((o: any) => {
               const prod = o.group_orders?.products;
-              const buyerProf = o.profiles;
+              const buyerName = profileMap.get(o.buyer_id) || o.buyer_name || 'Student Buyer';
               return {
                 ...o,
-                buyer_name: buyerProf?.full_name || o.buyer_name || 'Student Buyer',
+                buyer_name: buyerName,
                 product_id: prod?.id || o.product_id || '',
                 product_name: prod?.name || o.product_name || 'Group Purchase',
                 product_image: prod?.image_url || o.product_image || '',
                 portion_size: prod?.shares_per_person || o.portion_size || '',
                 unit_price: prod?.price_per_share || o.unit_price || 0,
-                trader_name: prod?.profiles?.full_name || o.trader_name || 'KoboWise Store',
+                trader_name: o.trader_name || 'KoboWise Store',
                 estimated_delivery: prod?.estimated_delivery || o.estimated_delivery || 'Same Day Delivery',
                 pickup_location: prod?.pickup_location || o.pickup_location || 'DELSU Site II Gate'
               };
