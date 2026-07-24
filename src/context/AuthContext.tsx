@@ -16,6 +16,7 @@ interface AuthContextType {
   ) => Promise<{ success: boolean; error?: string; waitlisted?: boolean }>;
   logout: () => Promise<void>;
   switchRole: (role: 'buyer' | 'trader') => void;
+  updateUserProfile: (updates: Partial<Profile>) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -59,14 +60,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data: { session } } = await supabase!.auth.getSession();
         if (session?.user) {
           const profile = await dbService.getProfile(session.user.id);
-          setUser(profile);
+          if (profile) {
+            setUser({ ...profile, email: profile.email || session.user.email });
+          }
         }
         
         // Listen to auth changes
         const { data: { subscription } } = supabase!.auth.onAuthStateChange(async (_event, session) => {
           if (session?.user) {
             const profile = await dbService.getProfile(session.user.id);
-            setUser(profile);
+            if (profile) {
+              setUser({ ...profile, email: profile.email || session.user.email });
+            }
           } else {
             setUser(null);
           }
@@ -93,19 +98,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         // Ensure mock database is seeded in localStorage
         initializeMockDb();
-        // Find matching profile. For demo mode, we simulate success for any seeded user.
-        // If they enter "trader@delsu.edu", log in as trader-1. If "buyer@delsu.edu", log in as buyer-1.
-        // Otherwise search by email/name prefixes or log in as buyer-1.
+
         const profiles = JSON.parse(localStorage.getItem('kobowise_profiles') || '[]');
         let profile = null;
 
-        if (email.includes('trader')) {
+        const cleanEmail = email.trim().toLowerCase();
+        if (cleanEmail === 'trader@delsu.edu') {
           profile = profiles.find((p: any) => p.role === 'trader');
-        } else if (email.includes('buyer') || email === 'ismail@delsu.edu') {
-          profile = profiles.find((p: any) => p.id === 'buyer-1');
+        } else if (cleanEmail === 'buyer@delsu.edu') {
+          profile = profiles.find((p: any) => p.id === 'buyer-1') || profiles.find((p: any) => p.role === 'buyer');
         } else {
-          // Normal log-in fallback
-          profile = profiles[0] || null;
+          // Search by email match
+          profile = profiles.find((p: any) => p.email && p.email.toLowerCase() === cleanEmail) || null;
         }
 
         if (profile) {
@@ -121,14 +125,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           return { success: true };
         }
-        return { success: false, error: 'User profile not found in mock database.' };
+        return { success: false, error: 'User profile not found. Please create an account.' };
       } else {
         const { data, error } = await supabase!.auth.signInWithPassword({ email, password });
         if (error) throw error;
         
         if (data.user) {
           const profile = await dbService.getProfile(data.user.id);
-          setUser(profile);
+          if (profile) {
+            setUser({ ...profile, email: profile.email || data.user.email });
+          }
           return { success: true };
         }
         return { success: false, error: 'Sign in failed.' };
@@ -187,7 +193,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: true, waitlisted: true };
       }
 
-      // --- BUYER SIGNUP FLOW (unchanged) ---
+      // --- BUYER SIGNUP FLOW ---
       if (isDemoMode) {
         const profiles = JSON.parse(localStorage.getItem('kobowise_profiles') || '[]');
         const newId = `user-${Date.now()}`;
@@ -195,6 +201,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           id: newId,
           role,
           full_name: fullName,
+          email: email,
           phone_number: phoneNumber,
           student_id: role === 'buyer' ? studentId : undefined,
           avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fullName)}`
@@ -300,8 +307,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateUserProfile = async (updates: Partial<Profile>): Promise<boolean> => {
+    if (!user) return false;
+    const updated = await dbService.updateProfile(user.id, updates);
+    if (updated) {
+      setUser(updated);
+      return true;
+    }
+    return false;
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, signUp, logout, switchRole }}>
+    <AuthContext.Provider value={{ user, loading, login, signUp, logout, switchRole, updateUserProfile }}>
       {children}
     </AuthContext.Provider>
   );

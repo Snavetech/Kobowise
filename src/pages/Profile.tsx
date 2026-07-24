@@ -180,6 +180,11 @@ export const Profile: React.FC = () => {
   const activeOrders = orders.filter(o => o.status === 'paid' || o.status === 'processing');
   const completedOrdersList = orders.filter(o => o.status === 'ready_for_pickup' || o.status === 'delivered' || o.status === 'cancelled');
 
+  const userTotalSavings = orders.reduce((sum, order) => {
+    if (order.status === 'cancelled') return sum;
+    return sum + Math.round((order.total_price || 0) * 0.25);
+  }, 0);
+
   return (
     <div style={{ padding: '32px 0 60px 0', backgroundColor: '#F8FAFC', minHeight: '95vh' }}>
       <div className="container">
@@ -191,7 +196,7 @@ export const Profile: React.FC = () => {
               Student Profile
             </span>
             <h1 style={{ fontSize: '32px', color: '#0F172A', fontFamily: 'var(--font-heading)', fontWeight: '800', marginTop: '4px' }} className="profile-title">
-              Welcome back, {user?.full_name?.split(' ')[0] || 'Chioma'}
+              Welcome back, {user?.full_name?.split(' ')[0] || 'Student'}
             </h1>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '6px' }}>
               You have <strong style={{ color: '#2563EB' }}>{activeOrders.length} active groups</strong> and <strong style={{ color: '#F97316' }}>1 spot waiting to be filled!</strong>
@@ -213,7 +218,7 @@ export const Profile: React.FC = () => {
             </div>
             <div>
               <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', fontWeight: '700', textTransform: 'uppercase' }}>Active Groups</span>
-              <strong style={{ fontSize: '20px', color: '#0F172A', fontWeight: '800' }}>{activeOrders.length || 3}</strong>
+              <strong style={{ fontSize: '20px', color: '#0F172A', fontWeight: '800' }}>{activeOrders.length}</strong>
               <span style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block', marginTop: '1px' }}>Participating</span>
             </div>
           </div>
@@ -225,7 +230,7 @@ export const Profile: React.FC = () => {
             </div>
             <div>
               <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', fontWeight: '700', textTransform: 'uppercase' }}>Total Saved</span>
-              <strong style={{ fontSize: '20px', color: '#0F172A', fontWeight: '800' }}>{formatCurrency(54000)}</strong>
+              <strong style={{ fontSize: '20px', color: '#0F172A', fontWeight: '800' }}>{formatCurrency(userTotalSavings)}</strong>
               <span style={{ fontSize: '10px', color: '#2563EB', display: 'block', marginTop: '1px' }}>All-time savings</span>
             </div>
           </div>
@@ -237,7 +242,7 @@ export const Profile: React.FC = () => {
             </div>
             <div>
               <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', fontWeight: '700', textTransform: 'uppercase' }}>Orders Done</span>
-              <strong style={{ fontSize: '20px', color: '#0F172A', fontWeight: '800' }}>{completedOrdersList.length || 12}</strong>
+              <strong style={{ fontSize: '20px', color: '#0F172A', fontWeight: '800' }}>{completedOrdersList.length}</strong>
               <span style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block', marginTop: '1px' }}>Completed purchases</span>
             </div>
           </div>

@@ -30,6 +30,7 @@ export interface Profile {
   id: string;
   role: 'buyer' | 'trader';
   full_name: string;
+  email?: string;
   student_id?: string;
   phone_number: string;
   avatar_url?: string;
@@ -169,8 +170,8 @@ const MOCK_CATEGORIES: Category[] = [
 ];
 
 const MOCK_PROFILES: Profile[] = [
-  { id: 'trader-1', role: 'trader', full_name: 'KoboWise Store', phone_number: '08031112222' },
-  { id: 'buyer-1', role: 'buyer', full_name: 'Omologe Evans', student_id: 'FOS/22/23/287502', phone_number: '08123456789' }
+  { id: 'trader-1', role: 'trader', full_name: 'KoboWise Store', email: 'trader@delsu.edu', phone_number: '08031112222' },
+  { id: 'buyer-1', role: 'buyer', full_name: 'Omologe Evans', email: 'buyer@delsu.edu', student_id: 'FOS/22/23/287502', phone_number: '08123456789' }
 ];
 
 export const MOCK_PRODUCTS: Product[] = [

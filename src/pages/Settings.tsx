@@ -5,16 +5,21 @@ import { dbService, mockRealtime } from '../supabase';
 import { Save, User, ShieldCheck, Mail, Phone, MapPin, Bell, Edit } from 'lucide-react';
 
 export const Settings: React.FC = () => {
-  const { user } = useAuth();
+  const { user, updateUserProfile } = useAuth();
   const navigate = useNavigate();
 
   // Profile fields
-  const [fullName, setFullName] = useState(user?.full_name || 'Chioma Obi');
-  const [phoneNumber, setPhoneNumber] = useState(user?.phone_number || '08012345678');
-  const [studentId, setStudentId] = useState(user?.student_id || 'FOS/22/23/267776');
-  const [email, setEmail] = useState((user as any)?.email || 'chioma.obi@student.delsu.edu.ng');
+  const [fullName, setFullName] = useState(user?.full_name || '');
+  const [phoneNumber, setPhoneNumber] = useState(user?.phone_number || '');
+  const [studentId, setStudentId] = useState(user?.student_id || '');
+  const [email, setEmail] = useState(user?.email || (user as any)?.email || '');
   const [pickupPoint, setPickupPoint] = useState('DELSU Site II Gate Shop 1B');
   
+  // Real stats state
+  const [ordersCount, setOrdersCount] = useState(0);
+  const [totalSaved, setTotalSaved] = useState(0);
+  const [wishlistCount, setWishlistCount] = useState(0);
+
   // Notifications toggles (Image 2)
   const [groupUpdates, setGroupUpdates] = useState(true);
   const [orderAlerts, setOrderAlerts] = useState(true);
@@ -26,7 +31,26 @@ export const Settings: React.FC = () => {
   useEffect(() => {
     if (!user) {
       navigate('/login');
+      return;
     }
+    setFullName(user.full_name || '');
+    setPhoneNumber(user.phone_number || '');
+    setStudentId(user.student_id || '');
+    setEmail(user.email || (user as any)?.email || '');
+
+    // Fetch dynamic user statistics
+    dbService.getBuyerOrders(user.id).then(userOrders => {
+      setOrdersCount(userOrders.length);
+      const savings = userOrders.reduce((sum, order) => {
+        if (order.status === 'cancelled') return sum;
+        return sum + Math.round((order.total_price || 0) * 0.25);
+      }, 0);
+      setTotalSaved(savings);
+    });
+
+    dbService.getWishlist(user.id).then(wishlist => {
+      setWishlistCount(wishlist.length);
+    });
   }, [user, navigate]);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -36,13 +60,14 @@ export const Settings: React.FC = () => {
     setIsSaving(true);
     setSaveSuccess(false);
 
-    const updated = await dbService.updateProfile(user.id, {
+    const success = await updateUserProfile({
       full_name: fullName,
       phone_number: phoneNumber,
-      student_id: user.role === 'buyer' ? studentId : undefined
+      student_id: user.role === 'buyer' ? studentId : undefined,
+      email: email
     });
 
-    if (updated) {
+    if (success) {
       setSaveSuccess(true);
       mockRealtime.emit('toast', {
         message: 'Profile settings updated successfully!',
@@ -51,6 +76,12 @@ export const Settings: React.FC = () => {
       setTimeout(() => setSaveSuccess(false), 3000);
     }
     setIsSaving(false);
+  };
+
+  const formatShortCurrency = (val: number) => {
+    if (val >= 1000000) return `₦${(val / 1000000).toFixed(1)}m`;
+    if (val >= 1000) return `₦${(val / 1000).toFixed(0)}k`;
+    return `₦${val}`;
   };
 
   return (
@@ -110,7 +141,7 @@ export const Settings: React.FC = () => {
                 boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
               }}>
                 <img 
-                  src={user?.avatar_url || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=60"} 
+                  src={user?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fullName || 'User')}`} 
                   alt="" 
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                 />
@@ -121,18 +152,22 @@ export const Settings: React.FC = () => {
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <h2 style={{ fontSize: '24px', color: '#0F172A', fontWeight: '800', margin: 0 }}>
-                      {fullName}
+                      {fullName || 'Student User'}
                     </h2>
                     <span className="badge" style={{ backgroundColor: '#EFF6FF', color: '#2563EB', fontSize: '10px', fontWeight: '800', textTransform: 'none', padding: '2px 8px', borderRadius: '4px' }}>
                       DELSU
                     </span>
                   </div>
-                  <span style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'block', marginTop: '2px', fontWeight: '600' }}>
-                    Student ID: {studentId}
-                  </span>
-                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>
-                    {email}
-                  </span>
+                  {studentId && (
+                    <span style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'block', marginTop: '2px', fontWeight: '600' }}>
+                      Student ID: {studentId}
+                    </span>
+                  )}
+                  {email && (
+                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>
+                      {email}
+                    </span>
+                  )}
                 </div>
 
                 <button type="button" className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', padding: '8px 16px', borderRadius: '20px' }}>
@@ -154,25 +189,25 @@ export const Settings: React.FC = () => {
                   <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', fontWeight: '700' }}>
                     <i className="fa-solid fa-cart-shopping" style={{ color: '#2563EB', marginRight: '4px' }}></i> Orders
                   </span>
-                  <strong style={{ fontSize: '20px', color: '#0F172A', display: 'block', marginTop: '4px', fontWeight: '800' }}>12</strong>
+                  <strong style={{ fontSize: '20px', color: '#0F172A', display: 'block', marginTop: '4px', fontWeight: '800' }}>{ordersCount}</strong>
                 </div>
                 <div style={{ borderLeft: '1px solid #DBEAFE' }}>
                   <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', fontWeight: '700' }}>
                     <i className="fa-solid fa-piggy-bank" style={{ color: '#16A34A', marginRight: '4px' }}></i> Saved
                   </span>
-                  <strong style={{ fontSize: '20px', color: '#2563EB', display: 'block', marginTop: '4px', fontWeight: '800' }}>₦54k</strong>
+                  <strong style={{ fontSize: '20px', color: '#2563EB', display: 'block', marginTop: '4px', fontWeight: '800' }}>{formatShortCurrency(totalSaved)}</strong>
                 </div>
                 <div style={{ borderLeft: '1px solid #DBEAFE' }}>
                   <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', fontWeight: '700' }}>
                     <i className="fa-solid fa-heart" style={{ color: '#EF4444', marginRight: '4px' }}></i> Wishlisted
                   </span>
-                  <strong style={{ fontSize: '20px', color: '#0F172A', display: 'block', marginTop: '4px', fontWeight: '800' }}>4</strong>
+                  <strong style={{ fontSize: '20px', color: '#0F172A', display: 'block', marginTop: '4px', fontWeight: '800' }}>{wishlistCount}</strong>
                 </div>
                 <div style={{ borderLeft: '1px solid #DBEAFE' }}>
                   <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', fontWeight: '700' }}>
                     <i className="fa-solid fa-star" style={{ color: '#F59E0B', marginRight: '4px' }}></i> Rating
                   </span>
-                  <strong style={{ fontSize: '20px', color: '#0F172A', display: 'block', marginTop: '4px', fontWeight: '800' }}>4.9</strong>
+                  <strong style={{ fontSize: '20px', color: '#0F172A', display: 'block', marginTop: '4px', fontWeight: '800' }}>5.0</strong>
                 </div>
               </div>
 
