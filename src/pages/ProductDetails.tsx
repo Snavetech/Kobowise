@@ -206,9 +206,14 @@ export const ProductDetails: React.FC = () => {
   const cartShares = (existingInCart && confirmedShares > 0) ? existingInCart.sharesBought : 0;
   const sharesPurchased = Math.min(product.total_shares, confirmedShares + cartShares);
   const sharesLeft = Math.max(0, product.total_shares - sharesPurchased);
-  
-  // Cap selectable shares to total shares for this bulk product
-  const maxAvailableShares = Math.max(1, product.total_shares);
+  // Cap selectable shares to remaining available shares for this group
+  const maxAvailableShares = sharesLeft > 0 ? sharesLeft : Math.max(1, product.total_shares);
+
+  useEffect(() => {
+    if (sharesLeft > 0 && sharesCount > sharesLeft) {
+      setSharesCount(sharesLeft);
+    }
+  }, [sharesLeft, sharesCount]);
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('en-NG', {

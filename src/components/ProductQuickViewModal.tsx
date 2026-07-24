@@ -69,7 +69,13 @@ export const ProductQuickViewModal: React.FC<ProductQuickViewModalProps> = ({
   const cartShares = (existingCartItem && confirmedShares > 0) ? existingCartItem.sharesBought : 0;
   const sharesPurchased = Math.min(product.total_shares, confirmedShares + cartShares);
   const sharesLeft = Math.max(0, product.total_shares - sharesPurchased);
-  const maxAvailableShares = Math.max(1, product.total_shares);
+  const maxAvailableShares = sharesLeft > 0 ? sharesLeft : Math.max(1, product.total_shares);
+
+  useEffect(() => {
+    if (sharesLeft > 0 && sharesCount > sharesLeft) {
+      setSharesCount(sharesLeft);
+    }
+  }, [sharesLeft, sharesCount]);
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('en-NG', {
