@@ -1538,59 +1538,65 @@ export const dbService = {
   },
 
   async updateOrderStatus(orderId: string, status: Order['status']): Promise<boolean> {
-    if (isDemoMode || !isUuid(orderId)) {
-      const orders = getLocal<Order[]>('orders', []);
-      const updated = orders.map(o => {
-        if (o.id === orderId) {
-          // Notify buyer of status update
-          const notifications = getLocal<Notification[]>('notifications', []);
-          const products = getLocal<Product[]>('products', []);
-          const groupOrders = getLocal<GroupOrder[]>('group_orders', []);
-          const grp = groupOrders.find(g => g.id === o.group_order_id);
-          const prod = grp ? products.find(p => p.id === grp.product_id) : null;
+    // Always update local storage so cache and offline state stay synchronized
+    const orders = getLocal<Order[]>('orders', []);
+    const updated = orders.map(o => {
+      if (o.id === orderId || o.payment_reference === orderId) {
+        // Notify buyer of status update
+        const notifications = getLocal<Notification[]>('notifications', []);
+        const products = getLocal<Product[]>('products', []);
+        const groupOrders = getLocal<GroupOrder[]>('group_orders', []);
+        const grp = groupOrders.find(g => g.id === o.group_order_id);
+        const prod = grp ? products.find(p => p.id === grp.product_id) : null;
 
-          let title = 'Order Update';
-          let message = `Your order status was updated to: ${status.replace(/_/g, ' ')}.`;
-          if (status === 'processing') {
-            title = 'Order Processing';
-            message = `The seller has received your order for "${prod ? prod.name : 'your bulk buy'}" and is confirming payment & packaging the item.`;
-          } else if (status === 'ready_for_pickup') {
-            title = 'Processed Order — Ready!';
-            message = `Processed Order! The seller has finished processing your order for "${prod ? prod.name : 'your bulk buy'}". Your item is packed and ready for collection at ${prod ? prod.pickup_location : 'the pickup point'}.`;
-          } else if (status === 'delivered') {
-            title = 'Order Delivered';
-            message = `Collected! Your portion of "${prod ? prod.name : 'your bulk buy'}" has been marked as delivered. Thank you!`;
-          } else if (status === 'refunded') {
-            title = 'Order Refunded';
-            message = `Refunded! ₦${o.total_price} for "${prod ? prod.name : 'your bulk buy'}" has been refunded to your account.`;
-          }
-
-          notifications.push({
-            id: `notif-${Date.now()}`,
-            user_id: o.buyer_id,
-            title,
-            message,
-            is_read: false,
-            created_at: new Date().toISOString()
-          });
-          setLocal('notifications', notifications);
-          mockRealtime.emit('notifications_updated', {});
-          
-          return { ...o, status };
+        let title = 'Order Update';
+        let message = `Your order status was updated to: ${status.replace(/_/g, ' ')}.`;
+        if (status === 'processing') {
+          title = 'Order Processing';
+          message = `The seller has received your order for "${prod ? prod.name : 'your bulk buy'}" and is confirming payment & packaging the item.`;
+        } else if (status === 'ready_for_pickup') {
+          title = 'Processed Order — Ready!';
+          message = `Processed Order! The seller has finished processing your order for "${prod ? prod.name : 'your bulk buy'}". Your item is packed and ready for collection at ${prod ? prod.pickup_location : 'the pickup point'}.`;
+        } else if (status === 'delivered') {
+          title = 'Order Delivered';
+          message = `Collected! Your portion of "${prod ? prod.name : 'your bulk buy'}" has been marked as delivered. Thank you!`;
+        } else if (status === 'refunded') {
+          title = 'Order Refunded';
+          message = `Refunded! ₦${o.total_price} for "${prod ? prod.name : 'your bulk buy'}" has been refunded to your account.`;
         }
-        return o;
-      });
-      setLocal('orders', updated);
-      return true;
+
+        notifications.push({
+          id: `notif-${Date.now()}`,
+          user_id: o.buyer_id,
+          title,
+          message,
+          is_read: false,
+          created_at: new Date().toISOString()
+        });
+        setLocal('notifications', notifications);
+        return { ...o, status };
+      }
+      return o;
+    });
+    setLocal('orders', updated);
+
+    if (!isDemoMode && isSupabaseConfigured && supabase) {
+      try {
+        let query = supabase.from('orders').update({ status });
+        if (isUuid(orderId)) {
+          query = query.eq('id', orderId);
+        } else {
+          query = query.eq('payment_reference', orderId);
+        }
+        await query;
+      } catch (err) {
+        console.error('Error updating order status in Supabase:', err);
+      }
     }
 
-    const { error } = await supabase!
-      .from('orders')
-      .update({ status })
-      .eq('id', orderId);
-
     mockRealtime.emit('notifications_updated', {});
-    return !error;
+    mockRealtime.emit('orders_updated', {});
+    return true;
   },
 
   async requestRefund(orderId: string, buyerId: string, reason: string): Promise<boolean> {

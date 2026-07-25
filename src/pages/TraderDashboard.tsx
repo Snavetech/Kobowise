@@ -131,6 +131,12 @@ export const TraderDashboard: React.FC = () => {
       }
     });
 
+    const ordersSub = mockRealtime.subscribe('orders_updated', () => {
+      if (user) {
+        loadTraderData(false);
+      }
+    });
+
     const toggleDrawerSub = mockRealtime.subscribe('toggle_notif_drawer', () => {
       setShowNotifDrawer(prev => !prev);
     });
@@ -138,6 +144,7 @@ export const TraderDashboard: React.FC = () => {
     return () => {
       groupsSub.unsubscribe();
       notifsSub.unsubscribe();
+      ordersSub.unsubscribe();
       toggleDrawerSub.unsubscribe();
     };
   }, [user, navigate, loadTraderData]);

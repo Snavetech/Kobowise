@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { Navbar } from './components/Navbar';
@@ -49,6 +49,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRole?: 'buyer
 const AppLayout: React.FC = () => {
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [unreadNotifsCount, setUnreadNotifsCount] = useState(0);
 
   const fetchUnreadCount = useCallback(async () => {
@@ -79,11 +80,15 @@ const AppLayout: React.FC = () => {
   const hideChrome = isLandingPage || isAuthPage;
 
   const handleToggleNotifications = () => {
-    // Dispatch custom event to notify homepage/dashboard to show notifications drawer
-    mockRealtime.emit('toggle_notif_drawer', {});
-    // For convenience: if not on homepage, redirect to profile where alerts reside
-    if (location.pathname !== '/home' && location.pathname !== '/trader-dashboard') {
-      window.location.hash = user?.role === 'trader' ? '#/trader-dashboard' : '#/profile';
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+    if (user.role === 'trader') {
+      navigate('/trader-dashboard');
+      mockRealtime.emit('toggle_notif_drawer', {});
+    } else {
+      navigate('/profile?tab=notifications');
     }
   };
 

@@ -32,10 +32,15 @@ export const Profile: React.FC = () => {
   const { user } = useAuth();
   const { cartItems, removeFromCart } = useCart();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = (searchParams.get('tab') as any) || 'groups';
-  const [activeTab, setActiveTab] = useState<'groups' | 'orders' | 'wishlist' | 'notifications'>(initialTab);
+  const [activeTab, setActiveTabState] = useState<'groups' | 'orders' | 'wishlist' | 'notifications'>(initialTab);
   
+  const setActiveTab = (tab: 'groups' | 'orders' | 'wishlist' | 'notifications') => {
+    setActiveTabState(tab);
+    setSearchParams({ tab });
+  };
+
   // Purchases lifecycle subtabs state (AliExpress style)
   const [searchQuery, setSearchQuery] = useState('');
   const [purchaseTab, setPurchaseTab] = useState<'all' | 'to_pay' | 'processing' | 'processed' | 'returns' | 'review' | 'completed'>('all');
@@ -45,7 +50,7 @@ export const Profile: React.FC = () => {
   useEffect(() => {
     const tab = searchParams.get('tab');
     if (tab && ['groups', 'orders', 'wishlist', 'notifications'].includes(tab)) {
-      setActiveTab(tab as any);
+      setActiveTabState(tab as any);
     }
   }, [searchParams]);
 
@@ -112,7 +117,7 @@ export const Profile: React.FC = () => {
     }
     loadProfileData();
 
-    // Subscribe to mock real-time events to refresh active groups/notifs
+    // Subscribe to mock real-time events to refresh active groups/notifs/orders
     const groupsSub = mockRealtime.subscribe('groups_updated', () => {
       loadProfileData();
     });
@@ -120,12 +125,20 @@ export const Profile: React.FC = () => {
     const notifsSub = mockRealtime.subscribe('notifications_updated', () => {
       if (user) {
         dbService.getNotifications(user.id).then(setNotifications);
+        dbService.getBuyerOrders(user.id).then(setOrders);
+      }
+    });
+
+    const ordersSub = mockRealtime.subscribe('orders_updated', () => {
+      if (user) {
+        dbService.getBuyerOrders(user.id).then(setOrders);
       }
     });
 
     return () => {
       groupsSub.unsubscribe();
       notifsSub.unsubscribe();
+      ordersSub.unsubscribe();
     };
   }, [user, navigate, loadProfileData]);
 
