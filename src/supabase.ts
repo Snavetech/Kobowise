@@ -1510,17 +1510,27 @@ export const dbService = {
     }
 
     try {
+      // Fetch orders joined with group_orders → products, filtering by trader_id
+      // Note: PostgREST does not support .eq() on deeply nested join columns like
+      // 'group_orders.products.trader_id'. We use !inner joins to ensure only orders
+      // with matching group_orders and products are returned, then filter client-side.
       const { data, error } = await supabase!
         .from('orders')
-        .select('*, profiles(full_name), group_orders!inner(*, products!inner(*))')
-        .eq('group_orders.products.trader_id', traderId)
+        .select('*, profiles!orders_buyer_id_fkey(full_name), group_orders!inner(*, products!inner(*))')
         .order('created_at', { ascending: false });
 
       if (error || !data) {
+        console.error('getTraderOrders Supabase error:', error);
         return mappedLocal.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       }
 
-      const mappedSupa: Order[] = data.map(o => ({
+      // Filter client-side by trader_id from the nested products relation
+      const traderData = data.filter(o => {
+        const product = o.group_orders?.products;
+        return product && product.trader_id === traderId;
+      });
+
+      const mappedSupa: Order[] = traderData.map(o => ({
         ...o,
         buyer_name: o.profiles?.full_name || 'Student Buyer',
         product_name: o.group_orders?.products?.name || 'Unknown Product',
