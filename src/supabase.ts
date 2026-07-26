@@ -1215,7 +1215,14 @@ export const dbService = {
         status: 'processing',
         payment_method: paymentMethod,
         payment_reference: finalRef,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        product_id: product.id,
+        product_name: product.name,
+        product_image: product.image_url,
+        portion_size: product.shares_per_person,
+        unit_price: product.price_per_share,
+        trader_name: product.trader_name,
+        pickup_location: product.pickup_location
       };
       orders.push(newOrder);
       setLocal('orders', orders);
@@ -1483,28 +1490,44 @@ export const dbService = {
 
   async getTraderOrders(traderId: string): Promise<Order[]> {
     const localOrders = getLocal<Order[]>('orders', []);
-    const groupOrders = getLocal<GroupOrder[]>('group_orders', []);
-    const products = await this.getProducts();
-    const profiles = getLocal<Profile[]>('profiles', []);
+    const groupOrders = getLocal<GroupOrder[]>('group_orders', MOCK_GROUP_ORDERS);
+    const localProducts = getLocal<Product[]>('products', MOCK_PRODUCTS);
+    const profiles = getLocal<Profile[]>('profiles', MOCK_PROFILES);
+
+    // Get products from Supabase and combine with local mock products so lookup never fails
+    let supaProducts: Product[] = [];
+    try {
+      if (supabase && !isDemoMode) {
+        const { data } = await supabase.from('products').select('*');
+        if (data) supaProducts = data;
+      }
+    } catch {}
+
+    const productMap = new Map<string, Product>();
+    localProducts.forEach(p => productMap.set(p.id, p));
+    supaProducts.forEach(p => productMap.set(p.id, p));
+    const allProducts = Array.from(productMap.values());
 
     const mappedLocal: Order[] = localOrders
       .filter(o => {
         const grp = groupOrders.find(g => g.id === o.group_order_id);
-        const prod = grp ? products.find(p => p.id === grp.product_id) : null;
-        // Match orders where the product belongs to this trader, OR the product
-        // has a non-UUID trader_id (mock product) — in the single-trader setup,
-        // mock product orders belong to whichever trader is logged in.
-        return prod && (prod.trader_id === traderId || !isUuid(prod.trader_id));
+        const prod = grp ? allProducts.find(p => p.id === grp.product_id) : null;
+        if (prod) {
+          return prod.trader_id === traderId || !isUuid(prod.trader_id);
+        }
+        // Fallback: If group/product metadata isn't directly matched in arrays,
+        // include any order if order ID or group_order_id is non-UUID
+        return !isUuid(o.id) || !isUuid(o.group_order_id) || (o.payment_reference && !isUuid(o.payment_reference));
       })
       .map(o => {
         const grp = groupOrders.find(g => g.id === o.group_order_id);
-        const prod = grp ? products.find(p => p.id === grp.product_id) : null;
+        const prod = grp ? allProducts.find(p => p.id === grp.product_id) : null;
         const buyer = profiles.find(p => p.id === o.buyer_id);
         return {
           ...o,
-          product_name: prod ? prod.name : 'Unknown Product',
-          buyer_name: buyer ? buyer.full_name : 'Student Buyer',
-          pickup_location: prod ? prod.pickup_location : ''
+          product_name: prod ? prod.name : (o.product_name || 'Group Purchase'),
+          buyer_name: buyer ? buyer.full_name : (o.buyer_name || 'Student Buyer'),
+          pickup_location: prod ? prod.pickup_location : (o.pickup_location || 'DELSU Site II Gate Shop 1B')
         };
       });
 
@@ -1513,80 +1536,68 @@ export const dbService = {
     }
 
     try {
-      // Multi-step approach: no nested joins which can silently break in PostgREST.
-      // Step 1: Always fetch ALL products for this trader from Supabase (all statuses,
-      // because getProducts() only returns 'active' ones, causing completed order products
-      // to be missing).
-      const { data: allTraderProds, error: prodFetchError } = await supabase!
+      // Step 1: Fetch products for this trader from Supabase
+      const { data: allTraderProds } = await supabase!
         .from('products')
         .select('id, name, pickup_location, price_per_share, shares_per_person')
         .eq('trader_id', traderId);
 
-      if (prodFetchError || !allTraderProds || allTraderProds.length === 0) {
-        console.error('getTraderOrders: could not fetch trader products', prodFetchError);
-        return mappedLocal.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      let mappedSupa: Order[] = [];
+      if (allTraderProds && allTraderProds.length > 0) {
+        const traderProductIds = allTraderProds.map((p: { id: string }) => p.id);
+        const supaProdMap = new Map<string, { id: string; name: string; pickup_location: string }>(
+          allTraderProds.map((p: { id: string; name: string; pickup_location: string }) => [p.id, p])
+        );
+
+        // Step 2: Get group_orders for those products
+        const { data: traderGroups } = await supabase!
+          .from('group_orders')
+          .select('id, product_id')
+          .in('product_id', traderProductIds);
+
+        if (traderGroups && traderGroups.length > 0) {
+          const groupIds = traderGroups.map((g: { id: string }) => g.id);
+
+          // Step 3: Fetch orders for those group_orders
+          const { data: ordersData } = await supabase!
+            .from('orders')
+            .select('*')
+            .in('group_order_id', groupIds)
+            .order('created_at', { ascending: false });
+
+          if (ordersData && ordersData.length > 0) {
+            // Step 4: Fetch buyer profiles for these orders
+            const buyerIds = [...new Set(ordersData.map((o: Order) => o.buyer_id).filter(isUuid))];
+            let buyerProfiles: { id: string; full_name: string }[] = [];
+            if (buyerIds.length > 0) {
+              const { data: profilesData } = await supabase!
+                .from('profiles')
+                .select('id, full_name')
+                .in('id', buyerIds);
+              buyerProfiles = profilesData || [];
+            }
+
+            const groupToProduct = new Map<string, { id: string; name: string; pickup_location: string }>();
+            traderGroups.forEach((g: { id: string; product_id: string }) => {
+              const p = supaProdMap.get(g.product_id);
+              if (p) groupToProduct.set(g.id, p);
+            });
+
+            mappedSupa = ordersData.map((o: Order) => {
+              const prod = groupToProduct.get(o.group_order_id);
+              const buyer = buyerProfiles.find(p => p.id === o.buyer_id);
+              return {
+                ...o,
+                product_name: prod?.name || o.product_name || 'Group Purchase',
+                buyer_name: buyer?.full_name || o.buyer_name || 'Student Buyer',
+                pickup_location: prod?.pickup_location || o.pickup_location || 'DELSU Site II Gate Shop 1B'
+              };
+            });
+          }
+        }
       }
 
-      const traderProductIds = allTraderProds.map((p: { id: string }) => p.id);
-      const productMap = new Map<string, { id: string; name: string; pickup_location: string }>(
-        allTraderProds.map((p: { id: string; name: string; pickup_location: string }) => [p.id, p])
-      );
-
-      // Step 2: Get group_orders for those products
-      const { data: traderGroups, error: groupsError } = await supabase!
-        .from('group_orders')
-        .select('id, product_id')
-        .in('product_id', traderProductIds);
-
-      if (groupsError || !traderGroups || traderGroups.length === 0) {
-        console.error('getTraderOrders groups error:', groupsError);
-        return mappedLocal.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      }
-
-      const groupIds = traderGroups.map((g: { id: string }) => g.id);
-
-      // Step 3: Fetch orders for those group_orders
-      const { data: ordersData, error: ordersError } = await supabase!
-        .from('orders')
-        .select('*')
-        .in('group_order_id', groupIds)
-        .order('created_at', { ascending: false });
-
-      if (ordersError || !ordersData) {
-        console.error('getTraderOrders orders error:', ordersError);
-        return mappedLocal.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      }
-
-      // Step 4: Fetch buyer profiles for these orders
-      const buyerIds = [...new Set(ordersData.map((o: Order) => o.buyer_id).filter(isUuid))];
-      let buyerProfiles: { id: string; full_name: string }[] = [];
-      if (buyerIds.length > 0) {
-        const { data: profilesData } = await supabase!
-          .from('profiles')
-          .select('id, full_name')
-          .in('id', buyerIds);
-        buyerProfiles = profilesData || [];
-      }
-
-      // Build a lookup map: group_order_id → product (using Supabase data, all statuses)
-      const groupToProduct = new Map<string, { id: string; name: string; pickup_location: string }>();
-      traderGroups.forEach((g: { id: string; product_id: string }) => {
-        const prod = productMap.get(g.product_id);
-        if (prod) groupToProduct.set(g.id, prod);
-      });
-
-      const mappedSupa: Order[] = ordersData.map((o: Order) => {
-        const prod = groupToProduct.get(o.group_order_id);
-        const buyer = buyerProfiles.find(p => p.id === o.buyer_id);
-        return {
-          ...o,
-          product_name: prod?.name || 'Unknown Product',
-          buyer_name: buyer?.full_name || 'Student Buyer',
-          pickup_location: prod?.pickup_location || ''
-        };
-      });
-
-      // Merge: Supabase data takes precedence over local
+      // Merge: Supabase data & Local data
       const combinedMap = new Map<string, Order>();
       mappedLocal.forEach(o => combinedMap.set(o.id, o));
       mappedSupa.forEach(o => combinedMap.set(o.id, o));
