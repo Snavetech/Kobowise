@@ -1491,7 +1491,10 @@ export const dbService = {
       .filter(o => {
         const grp = groupOrders.find(g => g.id === o.group_order_id);
         const prod = grp ? products.find(p => p.id === grp.product_id) : null;
-        return prod && prod.trader_id === traderId;
+        // Match orders where the product belongs to this trader, OR the product
+        // has a non-UUID trader_id (mock product) — in the single-trader setup,
+        // mock product orders belong to whichever trader is logged in.
+        return prod && (prod.trader_id === traderId || !isUuid(prod.trader_id));
       })
       .map(o => {
         const grp = groupOrders.find(g => g.id === o.group_order_id);
@@ -2106,7 +2109,21 @@ export const dbService = {
 
   // --- NOTIFICATIONS ---
   async getNotifications(userId: string): Promise<Notification[]> {
-    const localNotifs = getLocal<Notification[]>('notifications', []).filter(n => n.user_id === userId);
+    const localNotifs = getLocal<Notification[]>('notifications', []).filter(n => {
+      if (n.user_id === userId) return true;
+      // Include notifications addressed to mock trader IDs for live traders.
+      // When a live buyer purchases a mock product, notifications are created
+      // with user_id = 'trader-1' (mock). We need these to reach the real trader.
+      if (!isUuid(n.user_id)) {
+        const profiles = getLocal<Profile[]>('profiles', []);
+        const mockProfile = profiles.find(p => p.id === n.user_id);
+        if (mockProfile && mockProfile.role === 'trader') {
+          const liveProfile = profiles.find(p => p.id === userId);
+          return liveProfile?.role === 'trader';
+        }
+      }
+      return false;
+    });
 
     if (isDemoMode || !isUuid(userId) || !supabase) {
       return localNotifs.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
