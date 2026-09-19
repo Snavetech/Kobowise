@@ -1460,11 +1460,16 @@ export const dbService = {
   // --- ORDERS ---
   async getBuyerOrders(buyerId: string): Promise<Order[]> {
     const localOrders = getLocal<Order[]>('orders', []);
-    const groupOrders = getLocal<GroupOrder[]>('group_orders', []);
+    const groupOrders = getLocal<GroupOrder[]>('group_orders', MOCK_GROUP_ORDERS);
     const products = await this.getProducts();
     
     const mappedLocalOrders: Order[] = localOrders
-      .filter(o => o.buyer_id === buyerId || (buyerId === 'buyer-1' && !isUuid(o.buyer_id)))
+      .filter(o => {
+        if (o.buyer_id === buyerId) return true;
+        // In demo / test mode, allow both trader-1 and buyer-1 to view local demo purchases
+        if ((buyerId === 'buyer-1' || buyerId === 'trader-1' || !isUuid(buyerId)) && !isUuid(o.buyer_id)) return true;
+        return false;
+      })
       .map(o => {
         const grp = groupOrders.find(g => g.id === o.group_order_id);
         const prod = grp ? products.find(p => p.id === grp.product_id) : (products.find(p => p.id === o.product_id));

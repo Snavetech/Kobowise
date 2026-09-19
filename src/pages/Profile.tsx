@@ -528,6 +528,37 @@ export const Profile: React.FC = () => {
                 </div>
               </div>
 
+              {/* TRADER PROMPT BANNER */}
+              {(user?.role === 'trader' || user?.id === 'trader-1') && (
+                <div style={{
+                  backgroundColor: '#EFF6FF',
+                  border: '1px solid #BFDBFE',
+                  borderRadius: '16px',
+                  padding: '14px 20px',
+                  marginBottom: '20px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '12px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <ShoppingBag size={20} style={{ color: '#2563EB' }} />
+                    <div>
+                      <strong style={{ fontSize: '13px', color: '#1E40AF', display: 'block' }}>Looking to approve or confirm customer orders?</strong>
+                      <span style={{ fontSize: '12px', color: '#3B82F6' }}>Customer orders can be confirmed and processed right here or from your Trader Dashboard.</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => navigate('/trader-dashboard')}
+                    className="btn btn-primary btn-sm"
+                    style={{ padding: '8px 18px', fontSize: '12px', fontWeight: '800', borderRadius: '10px' }}
+                  >
+                    Open Trader Dashboard &rarr;
+                  </button>
+                </div>
+              )}
+
               {/* LIST PANEL */}
               {(() => {
                 const isMatch = (name?: string, ref?: string, trader?: string) => {
@@ -839,6 +870,21 @@ export const Profile: React.FC = () => {
                                 </button>
                               )}
 
+                              {(user?.role === 'trader' || user?.id === 'trader-1') && (order.status === 'paid' || order.status === 'processing') && (
+                                <button
+                                  onClick={async () => {
+                                    setActionLoadingId(order.id);
+                                    await dbService.updateOrderStatus(order.id, 'ready_for_pickup');
+                                    await loadProfileData();
+                                    setActionLoadingId(null);
+                                  }}
+                                  disabled={actionLoadingId === order.id}
+                                  style={{ border: 'none', borderRadius: '20px', padding: '6px 18px', fontSize: '12px', fontWeight: '800', color: '#FFFFFF', backgroundColor: '#2563EB', cursor: 'pointer' }}
+                                >
+                                  {actionLoadingId === order.id ? 'Confirming...' : '✓ Approve & Confirm Order'}
+                                </button>
+                              )}
+
                               {(order.status === 'paid' || order.status === 'processing' || order.status === 'ready_for_pickup') && (
                                 <button
                                   onClick={() => setRefundModalOrder(order)}
@@ -987,15 +1033,43 @@ export const Profile: React.FC = () => {
                       </span>
                     </div>
 
-                    {!notif.is_read && (
-                      <button 
-                        onClick={() => handleMarkRead(notif.id)}
-                        className="btn btn-outline btn-sm"
-                        style={{ flexShrink: 0, padding: '4px 8px', fontSize: '11px' }}
-                      >
-                        Dismiss
-                      </button>
-                    )}
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', flexShrink: 0 }}>
+                      {(notif.message.includes('Trader Dashboard') || notif.title.includes('New Order Received') || notif.title.includes('Confirm Order')) && (
+                        <button 
+                          onClick={() => {
+                            handleMarkRead(notif.id);
+                            navigate('/trader-dashboard');
+                          }}
+                          className="btn btn-primary btn-sm"
+                          style={{ padding: '6px 14px', fontSize: '11px', fontWeight: '800', borderRadius: '10px' }}
+                        >
+                          Approve on Trader Dashboard &rarr;
+                        </button>
+                      )}
+
+                      {notif.title.includes('Joined Group Buy') && (
+                        <button 
+                          onClick={() => {
+                            handleMarkRead(notif.id);
+                            navigate('/profile?tab=orders');
+                          }}
+                          className="btn btn-outline btn-sm"
+                          style={{ padding: '6px 12px', fontSize: '11px', fontWeight: '700', borderRadius: '10px' }}
+                        >
+                          View in Purchases
+                        </button>
+                      )}
+
+                      {!notif.is_read && (
+                        <button 
+                          onClick={() => handleMarkRead(notif.id)}
+                          className="btn btn-outline btn-sm"
+                          style={{ padding: '6px 10px', fontSize: '11px' }}
+                        >
+                          Dismiss
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))
               )}
