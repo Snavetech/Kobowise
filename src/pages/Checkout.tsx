@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { dbService, type GroupOrder, type Order } from '../supabase';
@@ -23,7 +23,6 @@ import { KoboWiseModal } from '../components/KoboWiseModal';
 export const Checkout: React.FC = () => {
   const { cartItems, cartTotal, deliveryType, clearCart } = useCart();
   const { user } = useAuth();
-  const navigate = useNavigate();
 
   // Modal notice state
   const [noticeModal, setNoticeModal] = useState<{ isOpen: boolean; title: string; message: string; type?: 'info' | 'support' | 'success' }>({
@@ -60,7 +59,7 @@ export const Checkout: React.FC = () => {
     return '1 share portion';
   };
 
-  const handleProceedToPay = async (e?: React.FormEvent, payImmediately = true) => {
+  const handleProceedToPay = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!phoneNumber.trim()) {
       setErrorMsg('Please input a valid phone number for trader contact.');
@@ -91,13 +90,7 @@ export const Checkout: React.FC = () => {
         if (ord) placed.push(ord);
       }
       setCreatedOrders(placed);
-
-      if (payImmediately) {
-        setIsPaystackOpen(true);
-      } else {
-        clearCart();
-        navigate('/profile?tab=orders&purchaseTab=to_pay');
-      }
+      setIsPaystackOpen(true);
     } catch (err: any) {
       console.error('Checkout creation error:', err);
       setErrorMsg(err.message || 'An error occurred during order creation. Please try again.');
@@ -683,43 +676,23 @@ export const Checkout: React.FC = () => {
 
               </div>
 
-              {/* Pay trigger buttons */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <button 
-                  type="submit" 
-                  disabled={placingOrder}
-                  className="btn btn-secondary btn-full btn-lg"
-                  style={{ 
-                    background: 'linear-gradient(135deg, #2563EB 0%, #3B82F6 100%)', 
-                    border: 'none', 
-                    fontWeight: '800', 
-                    fontSize: '15px',
-                    height: '48px',
-                    borderRadius: '14px',
-                    boxShadow: '0 4px 14px rgba(37, 99, 235, 0.2)'
-                  }}
-                >
-                  {placingOrder ? 'Creating Order...' : `Confirm & Pay Now ${formatCurrency(cartTotal + 150)}`}
-                </button>
-
-                <button 
-                  type="button" 
-                  onClick={() => handleProceedToPay(undefined, false)}
-                  disabled={placingOrder}
-                  className="btn btn-outline btn-full"
-                  style={{ 
-                    borderColor: '#CBD5E1', 
-                    color: '#475569', 
-                    fontWeight: '700', 
-                    fontSize: '13px',
-                    height: '42px',
-                    borderRadius: '14px',
-                    backgroundColor: '#F8FAFC'
-                  }}
-                >
-                  Place Order (Pay Later in Purchase History)
-                </button>
-              </div>
+              {/* Pay trigger button */}
+              <button 
+                type="submit" 
+                disabled={placingOrder}
+                className="btn btn-secondary btn-full btn-lg"
+                style={{ 
+                  background: 'linear-gradient(135deg, #2563EB 0%, #3B82F6 100%)', 
+                  border: 'none', 
+                  fontWeight: '800', 
+                  fontSize: '15px',
+                  height: '48px',
+                  borderRadius: '14px',
+                  boxShadow: '0 4px 14px rgba(37, 99, 235, 0.2)'
+                }}
+              >
+                {placingOrder ? 'Creating Order...' : `Confirm & Pay Now ${formatCurrency(cartTotal + 150)}`}
+              </button>
 
             </div>
           </div>
