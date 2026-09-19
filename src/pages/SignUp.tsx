@@ -123,9 +123,15 @@ export const SignUp: React.FC = () => {
     setOtpInput(['', '', '', '', '', '']);
     setOtpError('');
 
-    // Dispatch via EmailJS (gracefully simulated if keys are unconfigured)
-    await sendVerificationOTP(email, fullName, generated);
+    // Dispatch via EmailJS (shows error if EmailJS service call fails)
+    const emailRes = await sendVerificationOTP(email, fullName, generated);
     setLoading(false);
+
+    if (!emailRes.success) {
+      setErrorMsg(emailRes.error || 'Failed to send verification email. Please check your connection and try again.');
+      return;
+    }
+
     setIsVerifyingOtp(true);
   };
 
@@ -231,14 +237,10 @@ export const SignUp: React.FC = () => {
     setResendCooldown(60);
     setOtpInput(['', '', '', '', '', '']);
     setOtpError('');
-    await sendVerificationOTP(email, fullName, generated);
-  };
-
-  const handleAutoFillDemo = () => {
-    const digits = activeOtp.split('');
-    setOtpInput(digits);
-    setOtpError('');
-    handleVerifyOtp(activeOtp);
+    const emailRes = await sendVerificationOTP(email, fullName, generated);
+    if (!emailRes.success) {
+      setOtpError(emailRes.error || 'Failed to resend verification email.');
+    }
   };
 
   // ═══════════════════════════════════════════════
@@ -740,42 +742,6 @@ export const SignUp: React.FC = () => {
                 )}
               </div>
 
-              {/* Dev / Demo Helper Chip */}
-              <div style={{
-                marginTop: '28px',
-                padding: '12px 16px',
-                background: '#F8FAFC',
-                borderRadius: '12px',
-                border: '1px dashed #CBD5E1',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                fontSize: '13px',
-                color: '#475569'
-              }}>
-                <span>
-                  💡 <strong>Demo Mode OTP:</strong>{' '}
-                  <code style={{ color: '#2563EB', fontWeight: '800', fontSize: '15px', letterSpacing: '2px', marginLeft: '4px' }}>
-                    {activeOtp}
-                  </code>
-                </span>
-                <button
-                  type="button"
-                  onClick={handleAutoFillDemo}
-                  style={{
-                    background: '#EFF6FF',
-                    border: '1px solid #BFDBFE',
-                    color: '#1D4ED8',
-                    borderRadius: '8px',
-                    padding: '4px 10px',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Auto-Fill
-                </button>
-              </div>
 
               {/* Back to details link */}
               <div style={{ marginTop: '20px' }}>
