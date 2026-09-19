@@ -18,30 +18,22 @@ This directory contains email-safe, responsive, branded HTML templates ready to 
 
 ---
 
-## 2. Trader Waitlist Confirmation & Welcome
-- **File**: [`trader-waitlist.html`](./trader-waitlist.html)
-- **Subject in EmailJS**: `Welcome to the KoboWise Campus Trader Waitlist! 🎉`
+## 2. Universal Campus Notifications (Trader Waitlist & Order Receipts)
+- **File**: [`universal-notification.html`](./universal-notification.html)
+- **Subject in EmailJS**: `{{email_subject}}`
 - **Matching Environment Variable**: `VITE_EMAILJS_TEMPLATE_ID_WAITLIST`
+- **Handles**: Both Trader Waitlist and Order Receipts dynamically on the free plan!
 - **Dynamic Variables**:
-  - `{{to_name}}` - Vendor / Trader full name
-  - `{{to_email}}` - Trader email
-  - `{{phone_number}}` - Phone / WhatsApp contact
-  - `{{campus}}` - *Delta State University (DELSU)*
-
----
-
-## 3. Order Confirmation & Escrow Receipt
-- **File**: [`order-receipt.html`](./order-receipt.html)
-- **Subject in EmailJS**: `KoboWise Escrow Receipt #{{order_id}} - Payment Secured`
-- **Dynamic Variables**:
-  - `{{to_name}}` - Buyer full name
-  - `{{to_email}}` - Buyer email
-  - `{{order_id}}` - Unique transaction reference (e.g., *KBW-91823*)
-  - `{{product_name}}` - Name of product or bulk share
-  - `{{shares_count}}` - Quantity of shares purchased
-  - `{{total_price}}` - Formatted price (e.g., *₦3,500*)
-  - `{{pickup_location}}` - Campus collection venue (e.g., *DELSU Site II Gate*)
-  - `{{escrow_code}}` - 4-digit release PIN
+  - `{{to_name}}` - Recipient's name
+  - `{{to_email}}` - Recipient's email
+  - `{{email_subject}}` - Dynamic subject line
+  - `{{badge_text}}` - Top badge text
+  - `{{headline}}` - Main heading
+  - `{{intro_text}}` - Summary message
+  - `{{highlight_label}}`, `{{highlight_value}}`, `{{highlight_sub}}` - Highlighted card details (PIN or Offer)
+  - `{{row1_label}}` - `{{row4_value}}` - Key-value detail rows
+  - `{{closing_note}}` - Action steps
+  - `{{footer_note}}` - Custom footer note
 
 ---
 
