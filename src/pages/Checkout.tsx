@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { dbService, type GroupOrder } from '../supabase';
+import { dbService, type GroupOrder, type Order } from '../supabase';
 import { sendOrderReceiptEmail } from '../services/emailService';
 import { PaystackModal } from '../components/PaystackModal';
 import { 
@@ -23,6 +23,7 @@ import { KoboWiseModal } from '../components/KoboWiseModal';
 export const Checkout: React.FC = () => {
   const { cartItems, cartTotal, deliveryType, clearCart } = useCart();
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   // Modal notice state
   const [noticeModal, setNoticeModal] = useState<{ isOpen: boolean; title: string; message: string; type?: 'info' | 'support' | 'success' }>({
@@ -42,6 +43,7 @@ export const Checkout: React.FC = () => {
   const [lastPaymentRef, setLastPaymentRef] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [placingOrder, setPlacingOrder] = useState(false);
+  const [createdOrders, setCreatedOrders] = useState<Order[]>([]);
   
   // Promo code
   const [promoCode, setPromoCode] = useState('');
@@ -58,8 +60,8 @@ export const Checkout: React.FC = () => {
     return '1 share portion';
   };
 
-  const handleProceedToPay = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleProceedToPay = async (e?: React.FormEvent, payImmediately = true) => {
+    if (e) e.preventDefault();
     if (!phoneNumber.trim()) {
       setErrorMsg('Please input a valid phone number for trader contact.');
       return;
@@ -69,7 +71,39 @@ export const Checkout: React.FC = () => {
       return;
     }
     setErrorMsg('');
-    setIsPaystackOpen(true);
+    setPlacingOrder(true);
+
+    try {
+      if (!user) throw new Error('User not logged in');
+
+      // 1. Create order(s) under 'to_pay' status in Purchase History
+      const placed: Order[] = [];
+      const baseRef = `KBW-${Date.now().toString().slice(-6)}`;
+      for (const item of cartItems) {
+        const ord = await dbService.joinGroupOrder(
+          user.id,
+          item.product.id,
+          item.sharesBought,
+          'Pending Payment',
+          `${baseRef}-${item.product.id}`,
+          'to_pay'
+        );
+        if (ord) placed.push(ord);
+      }
+      setCreatedOrders(placed);
+
+      if (payImmediately) {
+        setIsPaystackOpen(true);
+      } else {
+        clearCart();
+        navigate('/profile?tab=orders&purchaseTab=to_pay');
+      }
+    } catch (err: any) {
+      console.error('Checkout creation error:', err);
+      setErrorMsg(err.message || 'An error occurred during order creation. Please try again.');
+    } finally {
+      setPlacingOrder(false);
+    }
   };
 
   const handlePaymentSuccess = async (reference: string) => {
@@ -80,15 +114,22 @@ export const Checkout: React.FC = () => {
     try {
       if (!user) throw new Error('User not logged in');
 
-      // Place each group buy order sequentially
-      for (const item of cartItems) {
-        await dbService.joinGroupOrder(
-          user.id,
-          item.product.id,
-          item.sharesBought,
-          'Paystack',
-          reference + '_' + item.product.id
-        );
+      // Transition created orders from 'to_pay' to 'processing'
+      if (createdOrders.length > 0) {
+        for (const ord of createdOrders) {
+          await dbService.payOrder(ord.id, 'Paystack', `${reference}_${ord.product_id}`);
+        }
+      } else {
+        for (const item of cartItems) {
+          await dbService.joinGroupOrder(
+            user.id,
+            item.product.id,
+            item.sharesBought,
+            'Paystack',
+            reference + '_' + item.product.id,
+            'processing'
+          );
+        }
       }
 
       // Dispatch Order Confirmation & Escrow Receipt via EmailJS
@@ -120,6 +161,19 @@ export const Checkout: React.FC = () => {
       setErrorMsg(err.message || 'An error occurred during order creation. Please try again.');
     } finally {
       setPlacingOrder(false);
+    }
+  };
+
+  const handlePaymentCancel = () => {
+    setIsPaystackOpen(false);
+    if (createdOrders.length > 0) {
+      clearCart();
+      setNoticeModal({
+        isOpen: true,
+        title: 'Order Saved in "To Pay"',
+        message: 'Your order has been placed and saved under "To Pay" in your Purchase History! You can complete your payment whenever you are ready.',
+        type: 'info'
+      });
     }
   };
 
@@ -317,6 +371,27 @@ export const Checkout: React.FC = () => {
               Share this deal
             </button>
             
+            <Link 
+              to="/profile?tab=orders&purchaseTab=processing" 
+              className="btn btn-primary" 
+              style={{ 
+                height: '48px', 
+                borderRadius: '30px', 
+                backgroundColor: '#2563EB', 
+                border: 'none', 
+                color: '#FFFFFF', 
+                fontWeight: '800', 
+                fontSize: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)'
+              }}
+            >
+              View in Purchase History (Processing Order) &rarr;
+            </Link>
+
             <Link 
               to="/home" 
               className="btn btn-outline" 
@@ -608,23 +683,43 @@ export const Checkout: React.FC = () => {
 
               </div>
 
-              {/* Pay trigger */}
-              <button 
-                type="submit" 
-                disabled={placingOrder}
-                className="btn btn-secondary btn-full btn-lg"
-                style={{ 
-                  background: 'linear-gradient(135deg, #2563EB 0%, #3B82F6 100%)', 
-                  border: 'none', 
-                  fontWeight: '800', 
-                  fontSize: '15px',
-                  height: '48px',
-                  borderRadius: '14px',
-                  boxShadow: '0 4px 14px rgba(37, 99, 235, 0.2)'
-                }}
-              >
-                {placingOrder ? 'Confirming...' : `Confirm & Pay ${formatCurrency(cartTotal + 150)}`}
-              </button>
+              {/* Pay trigger buttons */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <button 
+                  type="submit" 
+                  disabled={placingOrder}
+                  className="btn btn-secondary btn-full btn-lg"
+                  style={{ 
+                    background: 'linear-gradient(135deg, #2563EB 0%, #3B82F6 100%)', 
+                    border: 'none', 
+                    fontWeight: '800', 
+                    fontSize: '15px',
+                    height: '48px',
+                    borderRadius: '14px',
+                    boxShadow: '0 4px 14px rgba(37, 99, 235, 0.2)'
+                  }}
+                >
+                  {placingOrder ? 'Creating Order...' : `Confirm & Pay Now ${formatCurrency(cartTotal + 150)}`}
+                </button>
+
+                <button 
+                  type="button" 
+                  onClick={() => handleProceedToPay(undefined, false)}
+                  disabled={placingOrder}
+                  className="btn btn-outline btn-full"
+                  style={{ 
+                    borderColor: '#CBD5E1', 
+                    color: '#475569', 
+                    fontWeight: '700', 
+                    fontSize: '13px',
+                    height: '42px',
+                    borderRadius: '14px',
+                    backgroundColor: '#F8FAFC'
+                  }}
+                >
+                  Place Order (Pay Later in Purchase History)
+                </button>
+              </div>
 
             </div>
           </div>
@@ -638,7 +733,7 @@ export const Checkout: React.FC = () => {
         amount={cartTotal + 150}
         email={user?.phone_number ? `${user.phone_number}@delsu.edu` : 'buyer@delsu.edu'} 
         onSuccess={handlePaymentSuccess}
-        onCancel={() => setIsPaystackOpen(false)}
+        onCancel={handlePaymentCancel}
       />
 
       <KoboWiseModal

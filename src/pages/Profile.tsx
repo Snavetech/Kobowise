@@ -8,24 +8,26 @@ import type { Order, Product, Notification, GroupOrder } from '../supabase';
 import { ProgressBar } from '../components/ProgressBar';
 import { SkeletonLoader } from '../components/SkeletonLoader';
 import { KoboWiseModal } from '../components/KoboWiseModal';
+import { PaystackModal } from '../components/PaystackModal';
 import { 
   ShoppingBag, 
   Heart, 
   Bell, 
-  ClipboardList,
-  TrendingUp,
-  FolderOpen,
-  CheckCircle,
-  Trash2,
-  Search,
-  SlidersHorizontal,
-  Headphones,
-  Truck,
-  X,
-  ChevronRight,
-  CreditCard,
-  Check,
-  AlertTriangle
+  ClipboardList, 
+  TrendingUp, 
+  FolderOpen, 
+  CheckCircle, 
+  Trash2, 
+  Search, 
+  SlidersHorizontal, 
+  Headphones, 
+  Truck, 
+  X, 
+  ChevronRight, 
+  CreditCard, 
+  Check, 
+  AlertTriangle,
+  Star
 } from 'lucide-react';
 
 export const Profile: React.FC = () => {
@@ -41,16 +43,41 @@ export const Profile: React.FC = () => {
     setSearchParams({ tab });
   };
 
-  // Purchases lifecycle subtabs state (AliExpress style)
+  // Purchases lifecycle subtabs state
   const [searchQuery, setSearchQuery] = useState('');
-  const [purchaseTab, setPurchaseTab] = useState<'all' | 'to_pay' | 'processing' | 'processed' | 'returns' | 'review' | 'completed'>('all');
+  const initialPurchaseTab = (searchParams.get('purchaseTab') as any) || 'all';
+  const [purchaseTab, setPurchaseTabState] = useState<'all' | 'to_pay' | 'processing' | 'processed' | 'returns' | 'review'>(
+    ['all', 'to_pay', 'processing', 'processed', 'returns', 'review'].includes(initialPurchaseTab) ? initialPurchaseTab : 'all'
+  );
+
+  const setPurchaseTab = (pTab: 'all' | 'to_pay' | 'processing' | 'processed' | 'returns' | 'review') => {
+    setPurchaseTabState(pTab);
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('purchaseTab', pTab);
+      return next;
+    });
+  };
+
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [trackingModalOrder, setTrackingModalOrder] = useState<Order | null>(null);
+  const [payingOrder, setPayingOrder] = useState<Order | null>(null);
+
+  // Review modal states
+  const [reviewModalOrder, setReviewModalOrder] = useState<Order | null>(null);
+  const [reviewRating, setReviewRating] = useState<number>(5);
+  const [reviewComment, setReviewComment] = useState<string>('');
+  const [submittingReview, setSubmittingReview] = useState<boolean>(false);
+  const [submittedReviews, setSubmittedReviews] = useState<{ [orderId: string]: { rating: number; comment: string } }>({});
 
   useEffect(() => {
     const tab = searchParams.get('tab');
     if (tab && ['groups', 'orders', 'wishlist', 'notifications'].includes(tab)) {
       setActiveTabState(tab as any);
+    }
+    const pTab = searchParams.get('purchaseTab');
+    if (pTab && ['all', 'to_pay', 'processing', 'processed', 'returns', 'review'].includes(pTab)) {
+      setPurchaseTabState(pTab as any);
     }
   }, [searchParams]);
 
@@ -164,6 +191,24 @@ export const Profile: React.FC = () => {
       currency: 'NGN',
       maximumFractionDigits: 0
     }).format(val);
+  };
+
+  const handlePayOrderSuccess = async (ref: string) => {
+    if (!payingOrder) return;
+    setActionLoadingId(payingOrder.id);
+    await dbService.payOrder(payingOrder.id, 'Paystack', ref);
+    const completedOrder = payingOrder;
+    setPayingOrder(null);
+    await loadProfileData();
+    setActionLoadingId(null);
+    setPurchaseTab('processing');
+    setConfirmModal({
+      isOpen: true,
+      title: 'Payment Confirmed!',
+      message: `Your payment of ${formatCurrency(completedOrder.total_price)} was confirmed! Order #${completedOrder.payment_reference || completedOrder.id.substring(0, 10)} has moved to "Processing Order".`,
+      confirmText: 'Great!',
+      type: 'success'
+    });
   };
 
   if (loading) {
@@ -485,12 +530,11 @@ export const Profile: React.FC = () => {
                 }} className="purchases-subtabs">
                   {[
                     { id: 'all', label: 'View all', count: cartItems.length + orders.length },
-                    { id: 'to_pay', label: 'To pay', count: cartItems.length },
+                    { id: 'to_pay', label: 'To Pay', count: orders.filter(o => o.status === 'to_pay').length + cartItems.length },
                     { id: 'processing', label: 'Processing Order', count: orders.filter(o => o.status === 'paid' || o.status === 'processing').length },
                     { id: 'processed', label: 'Processed Order', count: orders.filter(o => o.status === 'ready_for_pickup').length },
-                    { id: 'returns', label: 'Returns/refunds', count: orders.filter(o => o.status === 'cancelled' || o.status === 'refunded' || o.status === 'refund_requested').length },
-                    { id: 'review', label: 'Review', count: orders.filter(o => o.status === 'delivered').length },
-                    { id: 'completed', label: 'Completed', count: orders.filter(o => o.status === 'delivered').length }
+                    { id: 'returns', label: 'Returns and Refunds', count: orders.filter(o => o.status === 'cancelled' || o.status === 'refunded' || o.status === 'refund_requested').length },
+                    { id: 'review', label: 'Reviews', count: orders.filter(o => o.status === 'delivered').length }
                   ].map(tab => (
                     <button
                       key={tab.id}
@@ -591,12 +635,11 @@ export const Profile: React.FC = () => {
                 const filteredOrders = orders.filter(o => {
                   if (!isMatch(o.product_name, o.payment_reference || o.id, o.trader_name)) return false;
                   if (!isWithinTimeFilter(o.created_at)) return false;
-                  if (purchaseTab === 'to_pay') return false;
+                  if (purchaseTab === 'to_pay') return o.status === 'to_pay';
                   if (purchaseTab === 'processing') return o.status === 'paid' || o.status === 'processing';
                   if (purchaseTab === 'processed') return o.status === 'ready_for_pickup';
                   if (purchaseTab === 'returns') return o.status === 'cancelled' || o.status === 'refunded' || o.status === 'refund_requested';
                   if (purchaseTab === 'review') return o.status === 'delivered';
-                  if (purchaseTab === 'completed') return o.status === 'delivered';
                   return true;
                 });
 
@@ -680,16 +723,21 @@ export const Profile: React.FC = () => {
                       let statusBadgeColor = '#D97706';
                       let statusDesc = 'The seller is confirming payment, preparing the item, packaging it, or waiting to hand it over.';
 
-                      if (order.status === 'ready_for_pickup') {
+                      if (order.status === 'to_pay') {
+                        statusBannerText = 'To Pay';
+                        statusBadgeBg = '#FEE2E2';
+                        statusBadgeColor = '#DC2626';
+                        statusDesc = 'Order created. Please complete payment using "Pay Now" to send this order for processing.';
+                      } else if (order.status === 'ready_for_pickup') {
                         statusBannerText = 'Processed Order';
                         statusBadgeBg = '#DCFCE7';
                         statusBadgeColor = '#15803D';
-                        statusDesc = 'The seller has finished processing the order! Item is packed and ready for shipment or collection.';
+                        statusDesc = 'The seller has finished processing the order! Item is packed and ready for collection or delivery.';
                       } else if (order.status === 'delivered') {
-                        statusBannerText = 'Delivered & Received';
+                        statusBannerText = 'Completed & Delivered';
                         statusBadgeBg = '#E0F2FE';
                         statusBadgeColor = '#0369A1';
-                        statusDesc = 'Order handed over and delivered successfully.';
+                        statusDesc = 'Order completed successfully! Please leave a review to share your feedback with other students.';
                       } else if (order.status === 'refund_requested') {
                         statusBannerText = 'Refund Requested';
                         statusBadgeBg = '#FEE2E2';
@@ -813,8 +861,59 @@ export const Profile: React.FC = () => {
                             </div>
 
                             <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                              {/* Track status button (Hidden for Refunded & Cancelled orders) */}
-                              {order.status !== 'refunded' && order.status !== 'cancelled' && (
+                              {/* TO PAY ORDER ACTIONS */}
+                              {order.status === 'to_pay' && (
+                                <>
+                                  <button
+                                    onClick={() => setPayingOrder(order)}
+                                    style={{
+                                      border: 'none',
+                                      borderRadius: '20px',
+                                      padding: '8px 22px',
+                                      fontSize: '12px',
+                                      fontWeight: '800',
+                                      color: '#FFFFFF',
+                                      backgroundColor: '#DC2626',
+                                      cursor: 'pointer',
+                                      boxShadow: '0 2px 8px rgba(220, 38, 38, 0.25)'
+                                    }}
+                                  >
+                                    Pay Now ({formatCurrency(order.total_price)})
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (!user) return;
+                                      setConfirmModal({
+                                        isOpen: true,
+                                        title: 'Cancel Unpaid Order',
+                                        message: `Are you sure you want to cancel Order #${order.payment_reference || order.id.substring(0, 10)}?`,
+                                        confirmText: 'Cancel Order',
+                                        cancelText: 'Keep Order',
+                                        type: 'danger',
+                                        onConfirm: async () => {
+                                          await dbService.deleteOrder(order.id, user.id);
+                                          loadProfileData();
+                                        }
+                                      });
+                                    }}
+                                    style={{
+                                      border: '1px solid #CBD5E1',
+                                      borderRadius: '20px',
+                                      padding: '6px 14px',
+                                      fontSize: '12px',
+                                      fontWeight: '700',
+                                      color: '#64748B',
+                                      backgroundColor: '#FFFFFF',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    Cancel
+                                  </button>
+                                </>
+                              )}
+
+                              {/* Track status button (Hidden for To Pay, Refunded & Cancelled orders) */}
+                              {order.status !== 'to_pay' && order.status !== 'refunded' && order.status !== 'cancelled' && (
                                 <button
                                   onClick={() => setTrackingModalOrder(order)}
                                   style={{ border: '1px solid #94A3B8', borderRadius: '20px', padding: '6px 16px', fontSize: '12px', fontWeight: '700', color: '#334155', backgroundColor: '#FFFFFF', cursor: 'pointer' }}
@@ -855,6 +954,7 @@ export const Profile: React.FC = () => {
                                 </span>
                               )}
 
+                              {/* Ready for pickup: Confirm received */}
                               {order.status === 'ready_for_pickup' && (
                                 <button
                                   onClick={async () => {
@@ -862,14 +962,16 @@ export const Profile: React.FC = () => {
                                     await dbService.updateOrderStatus(order.id, 'delivered');
                                     await loadProfileData();
                                     setActionLoadingId(null);
+                                    setPurchaseTab('review');
                                   }}
                                   disabled={actionLoadingId === order.id}
-                                  style={{ border: '1px solid #DC2626', borderRadius: '20px', padding: '6px 18px', fontSize: '12px', fontWeight: '800', color: '#DC2626', backgroundColor: '#FFFFFF', cursor: 'pointer' }}
+                                  style={{ border: 'none', borderRadius: '20px', padding: '6px 18px', fontSize: '12px', fontWeight: '800', color: '#FFFFFF', backgroundColor: '#10B981', cursor: 'pointer' }}
                                 >
                                   {actionLoadingId === order.id ? 'Updating...' : 'Confirm received'}
                                 </button>
                               )}
 
+                              {/* Trader Accept & Confirm button if viewing */}
                               {(user?.role === 'trader' || user?.id === 'trader-1') && (order.status === 'paid' || order.status === 'processing') && (
                                 <button
                                   onClick={async () => {
@@ -881,10 +983,11 @@ export const Profile: React.FC = () => {
                                   disabled={actionLoadingId === order.id}
                                   style={{ border: 'none', borderRadius: '20px', padding: '6px 18px', fontSize: '12px', fontWeight: '800', color: '#FFFFFF', backgroundColor: '#2563EB', cursor: 'pointer' }}
                                 >
-                                  {actionLoadingId === order.id ? 'Confirming...' : '✓ Approve & Confirm Order'}
+                                  {actionLoadingId === order.id ? 'Confirming...' : '✓ Accept & Confirm Order'}
                                 </button>
                               )}
 
+                              {/* Request Refund for active paid/processing/ready_for_pickup orders */}
                               {(order.status === 'paid' || order.status === 'processing' || order.status === 'ready_for_pickup') && (
                                 <button
                                   onClick={() => setRefundModalOrder(order)}
@@ -894,13 +997,19 @@ export const Profile: React.FC = () => {
                                 </button>
                               )}
 
+                              {/* Leave Review for Delivered Orders */}
                               {order.status === 'delivered' && (
-                                <Link
-                                  to={`/product/${order.product_id || 'prod-1'}`}
-                                  style={{ border: '1px solid #DC2626', borderRadius: '20px', padding: '6px 18px', fontSize: '12px', fontWeight: '800', color: '#DC2626', backgroundColor: '#FFFFFF', cursor: 'pointer', textDecoration: 'none' }}
+                                <button
+                                  onClick={() => {
+                                    setReviewModalOrder(order);
+                                    setReviewRating(5);
+                                    setReviewComment(submittedReviews[order.id]?.comment || '');
+                                  }}
+                                  style={{ border: 'none', borderRadius: '20px', padding: '6px 18px', fontSize: '12px', fontWeight: '800', color: '#FFFFFF', backgroundColor: '#2563EB', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 8px rgba(37, 99, 235, 0.25)' }}
                                 >
-                                  Leave review
-                                </Link>
+                                  <Star size={14} fill="#FFFFFF" />
+                                  {submittedReviews[order.id] ? 'Edit Review' : 'Leave Review'}
+                                </button>
                               )}
 
                               <button
@@ -924,6 +1033,20 @@ export const Profile: React.FC = () => {
                                 Delete
                               </button>
                             </div>
+
+                            {/* Submitted Review Snippet */}
+                            {submittedReviews[order.id] && (
+                              <div style={{ width: '100%', marginTop: '10px', padding: '10px 14px', backgroundColor: '#F0FDF4', borderRadius: '12px', border: '1px solid #BBF7D0', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{ display: 'flex', color: '#F59E0B' }}>
+                                  {[1, 2, 3, 4, 5].map((s) => (
+                                    <Star key={s} size={13} fill={s <= submittedReviews[order.id].rating ? '#F59E0B' : 'none'} color="#F59E0B" />
+                                  ))}
+                                </div>
+                                <span style={{ fontSize: '12px', color: '#166534', fontWeight: '600' }}>
+                                  "{submittedReviews[order.id].comment}"
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -1355,6 +1478,148 @@ export const Profile: React.FC = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Paystack Modal for To Pay items */}
+        {payingOrder && (
+          <PaystackModal
+            isOpen={!!payingOrder}
+            amount={payingOrder.total_price}
+            email={user?.email || (user?.phone_number ? `${user.phone_number}@delsu.edu` : 'buyer@delsu.edu')}
+            onSuccess={handlePayOrderSuccess}
+            onCancel={() => setPayingOrder(null)}
+          />
+        )}
+
+        {/* Interactive Review Modal */}
+        {reviewModalOrder && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 1050, backgroundColor: 'rgba(15, 23, 42, 0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+            <div style={{ backgroundColor: '#FFFFFF', borderRadius: '24px', maxWidth: '480px', width: '100%', padding: '28px', boxShadow: '0 20px 40px rgba(0, 0, 0, 0.2)', animation: 'scaleUp 0.2s ease-out' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
+                  Leave a Review
+                </h3>
+                <button onClick={() => setReviewModalOrder(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#64748B' }}>
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', gap: '14px', alignItems: 'center', marginBottom: '20px', backgroundColor: '#F8FAFC', padding: '12px 14px', borderRadius: '14px', border: '1px solid #E2E8F0' }}>
+                <img src={reviewModalOrder.product_image || '/images/Garri.png'} alt="" style={{ width: '56px', height: '56px', borderRadius: '10px', objectFit: 'cover' }} />
+                <div>
+                  <h4 style={{ fontSize: '14px', fontWeight: '800', color: '#0F172A', margin: '0 0 2px 0' }}>{reviewModalOrder.product_name}</h4>
+                  <span style={{ fontSize: '12px', color: '#64748B' }}>{reviewModalOrder.portion_size} • {reviewModalOrder.trader_name}</span>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '20px', textAlign: 'center' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#475569', marginBottom: '10px' }}>
+                  Rate your purchase:
+                </label>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setReviewRating(star)}
+                      style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '4px', transition: 'transform 0.1s' }}
+                      onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.2)'}
+                      onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1.0)'}
+                    >
+                      <Star
+                        size={32}
+                        fill={star <= reviewRating ? '#F59E0B' : 'none'}
+                        color={star <= reviewRating ? '#F59E0B' : '#CBD5E1'}
+                        strokeWidth={1.5}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#475569', marginBottom: '8px' }}>
+                  Your feedback:
+                </label>
+                <textarea
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  placeholder="How was the product quality, portion size, and pickup experience?"
+                  rows={4}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '12px',
+                    border: '1px solid #CBD5E1',
+                    fontSize: '13px',
+                    outline: 'none',
+                    resize: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button
+                  type="button"
+                  onClick={() => setReviewModalOrder(null)}
+                  style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid #CBD5E1', backgroundColor: '#FFFFFF', color: '#475569', fontWeight: '700', fontSize: '14px', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={submittingReview}
+                  onClick={async () => {
+                    if (!reviewModalOrder || !user) return;
+                    setSubmittingReview(true);
+                    try {
+                      const prodId = reviewModalOrder.product_id || 'prod-1';
+                      await dbService.addReview(
+                        prodId,
+                        user.id,
+                        user.full_name || 'Buyer',
+                        reviewRating,
+                        reviewComment.trim() || 'Great product and prompt delivery!'
+                      );
+                      setSubmittedReviews(prev => ({
+                        ...prev,
+                        [reviewModalOrder.id]: {
+                          rating: reviewRating,
+                          comment: reviewComment.trim() || 'Great product and prompt delivery!'
+                        }
+                      }));
+                      setReviewModalOrder(null);
+                      setConfirmModal({
+                        isOpen: true,
+                        title: 'Review Submitted!',
+                        message: 'Thank you for your feedback! Your review helps other students shop with confidence.',
+                        confirmText: 'Done',
+                        type: 'success'
+                      });
+                    } catch (err) {
+                      console.error('Submit review error:', err);
+                    } finally {
+                      setSubmittingReview(false);
+                    }
+                  }}
+                  style={{
+                    flex: 2,
+                    padding: '12px',
+                    borderRadius: '12px',
+                    border: 'none',
+                    backgroundColor: '#2563EB',
+                    color: '#FFFFFF',
+                    fontWeight: '800',
+                    fontSize: '14px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {submittingReview ? 'Submitting...' : 'Submit Review'}
+                </button>
+              </div>
             </div>
           </div>
         )}

@@ -99,7 +99,7 @@ export interface Order {
   group_order_id: string;
   shares_bought: number;
   total_price: number;
-  status: 'paid' | 'processing' | 'ready_for_pickup' | 'delivered' | 'cancelled' | 'refund_requested' | 'refunded';
+  status: 'to_pay' | 'paid' | 'processing' | 'ready_for_pickup' | 'delivered' | 'cancelled' | 'refund_requested' | 'refunded';
   payment_method: string;
   payment_reference: string;
   created_at: string;
@@ -1143,14 +1143,13 @@ export const dbService = {
     } catch {
       return getFallbackGroupOrders();
     }
-  },
-
-  async joinGroupOrder(
+  },  async joinGroupOrder(
     buyerId: string, 
     productId: string, 
     sharesToBuy: number,
     paymentMethod: string,
-    paymentReference: string
+    paymentReference: string,
+    initialStatus: 'to_pay' | 'processing' = 'processing'
   ): Promise<Order | null> {
     const products = await this.getProducts();
     const product = products.find(p => p.id === productId);
@@ -1217,7 +1216,7 @@ export const dbService = {
       group_order_id: group.id,
       shares_bought: sharesToBuy,
       total_price: sharesToBuy * product.price_per_share,
-      status: 'processing',
+      status: initialStatus,
       payment_method: paymentMethod,
       payment_reference: finalRef,
       created_at: new Date().toISOString(),
@@ -1243,36 +1242,57 @@ export const dbService = {
     });
     setLocal('order_items', orderItems);
 
-    const payments = getLocal<any[]>('payments', []);
-    payments.push({
-      id: `pay-${Date.now()}`,
-      order_id: newOrder.id,
-      amount: newOrder.total_price,
-      reference: finalRef,
-      status: 'success',
-      created_at: new Date().toISOString()
-    });
-    setLocal('payments', payments);
+    if (initialStatus === 'processing') {
+      const payments = getLocal<any[]>('payments', []);
+      payments.push({
+        id: `pay-${Date.now()}`,
+        order_id: newOrder.id,
+        amount: newOrder.total_price,
+        reference: finalRef,
+        status: 'success',
+        created_at: new Date().toISOString()
+      });
+      setLocal('payments', payments);
+    }
 
     const notifications = getLocal<Notification[]>('notifications', []);
-    notifications.push({
-      id: `notif-${Date.now()}-user`,
-      user_id: buyerId,
-      title: 'Joined Group Buy!',
-      message: `Successfully paid ₦${newOrder.total_price} for Order ${finalRef} (${product.name}). Your order is under processing by the seller until confirmed.`,
-      is_read: false,
-      created_at: new Date().toISOString()
-    });
+    if (initialStatus === 'to_pay') {
+      notifications.push({
+        id: `notif-${Date.now()}-user`,
+        user_id: buyerId,
+        title: 'Order Placed — To Pay',
+        message: `Your order for "${product.name}" (Order #${finalRef.substring(0, 10)}) has been placed! Complete your payment under "To Pay" to start processing.`,
+        is_read: false,
+        created_at: new Date().toISOString()
+      });
+      notifications.push({
+        id: `notif-${Date.now()}-trader-order`,
+        user_id: 'trader-1',
+        title: 'New Buyer Order Placed',
+        message: `Order #${finalRef.substring(0, 10)} placed for "${product.name}" (${sharesToBuy} portion(s)). Awaiting buyer payment.`,
+        is_read: false,
+        created_at: new Date().toISOString()
+      });
+    } else {
+      notifications.push({
+        id: `notif-${Date.now()}-user`,
+        user_id: buyerId,
+        title: 'Joined Group Buy!',
+        message: `Successfully paid ₦${newOrder.total_price} for Order ${finalRef} (${product.name}). Your order is under processing by the seller until confirmed.`,
+        is_read: false,
+        created_at: new Date().toISOString()
+      });
 
-    // Instant notification to standard Demo Trader for every purchase
-    notifications.push({
-      id: `notif-${Date.now()}-trader-order`,
-      user_id: 'trader-1',
-      title: 'New Order Received!',
-      message: `New purchase of ${sharesToBuy} portion(s) for "${product.name}" (Order ${finalRef}). Total: ₦${newOrder.total_price}. Please confirm and process on your Trader Dashboard.`,
-      is_read: false,
-      created_at: new Date().toISOString()
-    });
+      // Instant notification to standard Demo Trader for every purchase
+      notifications.push({
+        id: `notif-${Date.now()}-trader-order`,
+        user_id: 'trader-1',
+        title: 'New Buyer Order Received!',
+        message: `New purchase of ${sharesToBuy} portion(s) for "${product.name}" (Order ${finalRef}). Total: ₦${newOrder.total_price}. Please confirm and process on your Trader Dashboard.`,
+        is_read: false,
+        created_at: new Date().toISOString()
+      });
+    }
 
     if (isComplete) {
       notifications.push({
@@ -1327,7 +1347,7 @@ export const dbService = {
         if (traderIdForDb) {
           await supabase!.from('profiles').upsert({
             id: traderIdForDb,
-            full_name: product.trader_name || 'KoboWise Standard Trader',
+            full_name: product.trader_name || 'Verified Trader',
             role: 'trader'
           }, { onConflict: 'id', ignoreDuplicates: true });
         }
@@ -1344,45 +1364,49 @@ export const dbService = {
         console.warn('Profiles upsert warning in joinGroupOrder:', profileUpsertErr);
       }
 
-      // 1. Ensure product exists in Supabase products table
-      const { data: existingSupaProd } = await supabase!
+      // Ensure product exists in Supabase
+      const { data: existingProd } = await supabase!
         .from('products')
         .select('id')
         .eq('id', prodUuid)
         .maybeSingle();
 
-      if (!existingSupaProd) {
-        await supabase!.from('products').insert({
+      if (!existingProd) {
+        const catUuid = product.category_id && isUuid(product.category_id) ? product.category_id : null;
+        await supabase!.from('products').upsert({
           id: prodUuid,
           trader_id: traderIdForDb,
+          category_id: catUuid,
           name: product.name,
-          description: product.description || '',
-          shares_per_person: product.shares_per_person || '',
+          description: product.description,
           total_price: product.total_price,
-          total_shares: product.total_shares || 4,
+          total_shares: product.total_shares,
           price_per_share: product.price_per_share,
-          stock_quantity: product.stock_quantity ?? 30,
-          estimated_delivery: product.estimated_delivery || 'Same Day Delivery',
-          pickup_location: product.pickup_location || 'DELSU Site II Gate Shop 1B',
-          status: 'active'
-        });
+          stock_quantity: product.stock_quantity,
+          image_url: product.image_url,
+          status: 'pending',
+          estimated_delivery: product.estimated_delivery,
+          pickup_location: product.pickup_location,
+          shares_per_person: product.shares_per_person
+        }, { onConflict: 'id', ignoreDuplicates: true });
       }
 
-      // 2. Ensure active group order exists in Supabase
-      let { data: currentGroup } = await supabase!
+      // 1. Get or Create Pending Group Order in Supabase
+      const { data: existingGroups } = await supabase!
         .from('group_orders')
         .select('*')
         .eq('product_id', prodUuid)
-        .eq('status', 'pending')
-        .maybeSingle();
+        .eq('status', 'pending');
+
+      let currentGroup = existingGroups && existingGroups.length > 0 ? existingGroups[0] : null;
 
       if (!currentGroup) {
         const { data: newGroup } = await supabase!
           .from('group_orders')
           .insert({
             product_id: prodUuid,
-            shares_needed: product.total_shares || 4,
             shares_purchased: 0,
+            shares_needed: product.total_shares,
             status: 'pending'
           })
           .select()
@@ -1391,7 +1415,8 @@ export const dbService = {
       }
 
       if (currentGroup) {
-        const nextShares = currentGroup.shares_purchased + sharesToBuy;
+        // 2. Increment shares in Supabase
+        const nextShares = (currentGroup.shares_purchased || 0) + sharesToBuy;
         const isCompleted = nextShares >= currentGroup.shares_needed;
 
         await supabase!
@@ -1410,7 +1435,7 @@ export const dbService = {
             group_order_id: currentGroup.id,
             shares_bought: sharesToBuy,
             total_price: sharesToBuy * product.price_per_share,
-            status: 'processing',
+            status: initialStatus,
             payment_method: paymentMethod,
             payment_reference: finalRef
           })
@@ -1425,17 +1450,21 @@ export const dbService = {
             price_paid: sharesToBuy * product.price_per_share
           });
 
-          await supabase!.from('payments').insert({
-            order_id: supaOrder.id,
-            amount: supaOrder.total_price,
-            reference: finalRef,
-            status: 'success'
-          });
+          if (initialStatus === 'processing') {
+            await supabase!.from('payments').insert({
+              order_id: supaOrder.id,
+              amount: sharesToBuy * product.price_per_share,
+              reference: finalRef,
+              status: 'success'
+            });
+          }
 
           await supabase!.from('notifications').insert({
             user_id: buyerUuid,
-            title: 'Joined Group Buy!',
-            message: `Successfully paid ₦${supaOrder.total_price} for Order ${finalRef} (${product.name}).`
+            title: initialStatus === 'to_pay' ? 'Order Placed (To Pay)' : 'Joined Group Buy!',
+            message: initialStatus === 'to_pay'
+              ? `Order ${finalRef} (${product.name}) placed. Proceed to pay under "To Pay" in Purchase History.`
+              : `Successfully paid ₦${sharesToBuy * product.price_per_share} for Order ${finalRef} (${product.name}).`
           });
 
           if (isCompleted) {
@@ -1453,8 +1482,77 @@ export const dbService = {
 
     mockRealtime.emit('orders_updated', {});
     return newOrder;
+  },
 
-    return { ...newOrder, payment_reference: finalRef };
+  async payOrder(orderId: string, paymentMethod: string, paymentReference: string): Promise<Order | null> {
+    const orders = getLocal<Order[]>('orders', []);
+    const orderIndex = orders.findIndex(o => o.id === orderId || o.payment_reference === orderId);
+    if (orderIndex === -1) return null;
+
+    const order = orders[orderIndex];
+    order.status = 'processing';
+    order.payment_method = paymentMethod || 'Paystack';
+    if (paymentReference) {
+      order.payment_reference = paymentReference;
+    }
+    setLocal('orders', orders);
+
+    // Record payment
+    const payments = getLocal<any[]>('payments', []);
+    payments.push({
+      id: `pay-${Date.now()}`,
+      order_id: order.id,
+      amount: order.total_price,
+      reference: order.payment_reference,
+      status: 'success',
+      created_at: new Date().toISOString()
+    });
+    setLocal('payments', payments);
+
+    // Notify buyer
+    const notifications = getLocal<Notification[]>('notifications', []);
+    notifications.push({
+      id: `notif-${Date.now()}-pay`,
+      user_id: order.buyer_id,
+      title: 'Payment Confirmed!',
+      message: `Payment of ₦${order.total_price} confirmed for "${order.product_name}" (Order #${order.payment_reference || order.id.substring(0, 10)}). Your order is now under "Processing Order".`,
+      is_read: false,
+      created_at: new Date().toISOString()
+    });
+
+    // Notify trader
+    notifications.push({
+      id: `notif-${Date.now()}-trader-paid`,
+      user_id: 'trader-1',
+      title: 'Buyer Order Paid — Needs Confirmation',
+      message: `Order #${order.payment_reference || order.id.substring(0, 10)} for "${order.product_name}" has been paid! Please accept and confirm the order on your Trader Dashboard.`,
+      is_read: false,
+      created_at: new Date().toISOString()
+    });
+    setLocal('notifications', notifications);
+
+    mockRealtime.emit('orders_updated', {});
+    mockRealtime.emit('notifications_updated', {});
+
+    if (supabase) {
+      try {
+        let query = supabase.from('orders').update({
+          status: 'processing',
+          payment_method: order.payment_method,
+          payment_reference: order.payment_reference
+        });
+        if (isUuid(order.id)) {
+          query = query.eq('id', order.id);
+        } else {
+          query = query.eq('payment_reference', order.id);
+        }
+        await query;
+      } catch (err) {
+        console.error('payOrder Supabase update error:', err);
+      }
+    }
+
+    return order;
   },
 
   // --- ORDERS ---

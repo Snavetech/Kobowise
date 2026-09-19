@@ -53,6 +53,7 @@ export const TraderDashboard: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [groupOrders, setGroupOrders] = useState<GroupOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [orderFilter, setOrderFilter] = useState<'all' | 'processing' | 'processed' | 'delivered' | 'refunds'>('all');
 
   // Forms states
   const [showAddForm, setShowAddForm] = useState(false);
@@ -253,7 +254,13 @@ export const TraderDashboard: React.FC = () => {
     
     const success = await dbService.updateOrderStatus(orderId, nextStatus);
     if (success) {
-      addToast(`Order marked as: ${nextStatus.replace(/_/g, ' ')}`, 'success');
+      let toastMsg = `Order marked as: ${nextStatus.replace(/_/g, ' ')}`;
+      if (nextStatus === 'ready_for_pickup') {
+        toastMsg = 'Order accepted & confirmed! Moved to Processed Order.';
+      } else if (nextStatus === 'delivered') {
+        toastMsg = 'Order marked as delivered and completed!';
+      }
+      addToast(toastMsg, 'success');
       loadTraderData(false);
     }
   };
@@ -382,6 +389,8 @@ export const TraderDashboard: React.FC = () => {
 
   const getOrderStatusBadge = (status: Order['status']) => {
     switch (status) {
+      case 'to_pay':
+        return <span className="badge" style={{ backgroundColor: '#FEE2E2', color: '#DC2626', border: '1px solid #FECACA', fontWeight: '800' }}>To Pay (Unpaid)</span>;
       case 'paid':
       case 'processing':
         return <span className="badge" style={{ backgroundColor: '#FEF3C7', color: '#D97706', border: '1px solid #FDE68A', fontWeight: '800' }}>Processing Order</span>;
@@ -464,7 +473,7 @@ export const TraderDashboard: React.FC = () => {
           {[
             { id: 'analytics', label: 'Dashboard Stats', icon: <TrendingUp size={16} /> },
             { id: 'products', label: 'Manage Inventory', icon: <ClipboardList size={16} /> },
-            { id: 'orders', label: 'Buyer Orders', icon: <ShoppingBag size={16} /> }
+            { id: 'orders', label: "Buyer's Order", icon: <ShoppingBag size={16} /> }
           ].map((tab) => {
             const pendingOrdersCount = orders.filter(o => o.status !== 'delivered' && o.status !== 'cancelled').length;
             return (
@@ -971,73 +980,135 @@ export const TraderDashboard: React.FC = () => {
         )}
 
         {/* ====================================================================
-            TAB 3: BUYER ORDERS MANAGEMENT
+            TAB 3: BUYER'S ORDER MANAGEMENT
             ==================================================================== */}
         {activeTab === 'orders' && (
           <div>
-            {orders.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px 20px', backgroundColor: '#FFFFFF', borderRadius: '20px', border: '1px solid var(--border-color)' }}>
-                <ShoppingBag size={40} style={{ color: 'var(--text-muted)', marginBottom: '12px' }} />
-                <p style={{ color: 'var(--text-secondary)' }}>No buyer orders found for your products yet.</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {orders.map((order) => (
-                  <div 
-                    key={order.id}
-                    style={{ 
-                      backgroundColor: '#FFFFFF', 
-                      borderRadius: '20px', 
-                      border: '1px solid var(--border-color)', 
-                      padding: '24px',
-                      boxShadow: '0 2px 8px rgba(30, 64, 175, 0.04)'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '16px', borderBottom: '1px dashed var(--border-color)', paddingBottom: '16px' }}>
-                      <div>
-                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '700' }}>
-                          ORDER ID: {order.payment_reference || order.id.substring(0, 10).toUpperCase()}
-                        </span>
-                        <h4 style={{ fontSize: '18px', color: '#0F172A', fontWeight: '800', margin: '2px 0' }}>
-                          {order.product_name}
-                        </h4>
-                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
-                          <span>Buyer: <strong>{order.buyer_name}</strong></span>
-                          <span>Shares Booked: <strong>{order.shares_bought} portions</strong> ({formatCurrency(order.total_price)})</span>
+            {/* Filter pills */}
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' }}>
+              {[
+                { id: 'all', label: 'All Orders', count: orders.length },
+                { id: 'processing', label: 'Processing Order (Needs Confirmation)', count: orders.filter(o => o.status === 'paid' || o.status === 'processing').length },
+                { id: 'processed', label: 'Processed Order', count: orders.filter(o => o.status === 'ready_for_pickup').length },
+                { id: 'delivered', label: 'Delivered', count: orders.filter(o => o.status === 'delivered').length },
+                { id: 'refunds', label: 'Refunds & Returns', count: orders.filter(o => o.status === 'refund_requested' || o.status === 'refunded' || o.status === 'cancelled').length }
+              ].map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => setOrderFilter(f.id as any)}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '20px',
+                    border: `1px solid ${orderFilter === f.id ? '#2563EB' : '#CBD5E1'}`,
+                    backgroundColor: orderFilter === f.id ? '#2563EB' : '#FFFFFF',
+                    color: orderFilter === f.id ? '#FFFFFF' : '#475569',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  {f.label}
+                  <span style={{
+                    fontSize: '11px',
+                    backgroundColor: orderFilter === f.id ? 'rgba(255, 255, 255, 0.25)' : '#F1F5F9',
+                    color: orderFilter === f.id ? '#FFFFFF' : '#64748B',
+                    padding: '1px 6px',
+                    borderRadius: '10px',
+                    fontWeight: '800'
+                  }}>
+                    {f.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {(() => {
+              const displayedOrders = orders.filter(o => {
+                if (orderFilter === 'processing') return o.status === 'paid' || o.status === 'processing';
+                if (orderFilter === 'processed') return o.status === 'ready_for_pickup';
+                if (orderFilter === 'delivered') return o.status === 'delivered';
+                if (orderFilter === 'refunds') return o.status === 'refund_requested' || o.status === 'refunded' || o.status === 'cancelled';
+                return true;
+              });
+
+              if (displayedOrders.length === 0) {
+                return (
+                  <div style={{ textAlign: 'center', padding: '40px 20px', backgroundColor: '#FFFFFF', borderRadius: '20px', border: '1px solid var(--border-color)' }}>
+                    <ShoppingBag size={40} style={{ color: 'var(--text-muted)', marginBottom: '12px' }} />
+                    <p style={{ color: 'var(--text-secondary)' }}>No buyer orders match this filter.</p>
+                  </div>
+                );
+              }
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {displayedOrders.map((order) => (
+                    <div 
+                      key={order.id}
+                      style={{ 
+                        backgroundColor: '#FFFFFF', 
+                        borderRadius: '20px', 
+                        border: '1px solid var(--border-color)', 
+                        padding: '24px',
+                        boxShadow: '0 2px 8px rgba(30, 64, 175, 0.04)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '16px', borderBottom: '1px dashed var(--border-color)', paddingBottom: '16px' }}>
+                        <div>
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '700' }}>
+                            ORDER ID: {order.payment_reference || order.id.substring(0, 10).toUpperCase()}
+                          </span>
+                          <h4 style={{ fontSize: '18px', color: '#0F172A', fontWeight: '800', margin: '2px 0' }}>
+                            {order.product_name}
+                          </h4>
+                          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
+                            <span>Buyer: <strong>{order.buyer_name}</strong></span>
+                            <span>Shares Booked: <strong>{order.shares_bought} portions</strong> ({formatCurrency(order.total_price)})</span>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
+                          {getOrderStatusBadge(order.status)}
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                            {new Date(order.created_at).toLocaleString()}
+                          </span>
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
-                        {getOrderStatusBadge(order.status)}
-                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                          {new Date(order.created_at).toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
+                      {/* Order action triggers */}
+                      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        {/* 0. To Pay -> Awaiting Buyer Payment */}
+                        {order.status === 'to_pay' && (
+                          <span style={{ fontSize: '12px', color: '#DC2626', fontWeight: '700', backgroundColor: '#FEF2F2', padding: '6px 14px', borderRadius: '10px' }}>
+                            Awaiting buyer payment completion
+                          </span>
+                        )}
 
-                    {/* Order action triggers */}
-                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-                      {/* 1. Processing Order -> Trader confirms order */}
-                      {(order.status === 'paid' || order.status === 'processing') && (
-                        <button 
-                          onClick={() => handleStatusChange(order.id, 'ready_for_pickup')}
-                          className="btn btn-secondary btn-sm"
-                          style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', border: 'none', color: '#FFFFFF', fontWeight: '800', borderRadius: '12px', padding: '10px 22px' }}
-                        >
-                          Confirm Order
-                        </button>
-                      )}
+                        {/* 1. Processing Order -> Trader accepts & confirms order */}
+                        {(order.status === 'paid' || order.status === 'processing') && (
+                          <button 
+                            onClick={() => handleStatusChange(order.id, 'ready_for_pickup')}
+                            className="btn btn-secondary btn-sm"
+                            style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', border: 'none', color: '#FFFFFF', fontWeight: '800', borderRadius: '12px', padding: '10px 22px' }}
+                          >
+                            Accept & Confirm Order
+                          </button>
+                        )}
 
-                      {/* 2. Ready for Pickup -> Trader marks delivered upon collection */}
-                      {order.status === 'ready_for_pickup' && (
-                        <button 
-                          onClick={() => handleStatusChange(order.id, 'delivered')}
-                          className="btn btn-sm"
-                          style={{ backgroundColor: '#10B981', border: 'none', color: '#FFFFFF', fontWeight: '800', borderRadius: '12px', padding: '10px 22px' }}
-                        >
-                          ✓ Mark as Delivered
-                        </button>
-                      )}
+                        {/* 2. Ready for Pickup -> Trader marks delivered upon collection */}
+                        {order.status === 'ready_for_pickup' && (
+                          <button 
+                            onClick={() => handleStatusChange(order.id, 'delivered')}
+                            className="btn btn-sm"
+                            style={{ backgroundColor: '#10B981', border: 'none', color: '#FFFFFF', fontWeight: '800', borderRadius: '12px', padding: '10px 22px' }}
+                          >
+                            ✓ Mark as Delivered
+                          </button>
+                        )}
 
                       {/* 3. Refund Requested State -> Approve or Reject */}
                       {order.status === 'refund_requested' && (
@@ -1100,9 +1171,10 @@ export const TraderDashboard: React.FC = () => {
                   </div>
                 ))}
               </div>
-            )}
-          </div>
-        )}
+            );
+          })()}
+        </div>
+      )}
 
         {/* ====================================================================
             POPUP FORM: UPLOAD/EDIT PRODUCT MODAL
