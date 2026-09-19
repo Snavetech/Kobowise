@@ -1302,6 +1302,7 @@ export const dbService = {
     setLocal('notifications', notifications);
     mockRealtime.emit('groups_updated', groupOrders);
     mockRealtime.emit('notifications_updated', {});
+    mockRealtime.emit('orders_updated', {});
 
     // If Demo Mode or no Supabase, return local order immediately
     if (isDemoMode || !supabase) {
@@ -1320,6 +1321,28 @@ export const dbService = {
         if (tProf) traderIdForDb = tProf.id;
       }
       if (!traderIdForDb) traderIdForDb = buyerUuid;
+
+      // Ensure profile exists for traderIdForDb & buyerUuid to satisfy foreign key constraints
+      try {
+        if (traderIdForDb) {
+          await supabase!.from('profiles').upsert({
+            id: traderIdForDb,
+            full_name: product.trader_name || 'KoboWise Standard Trader',
+            role: 'trader'
+          }, { onConflict: 'id', ignoreDuplicates: true });
+        }
+        if (buyerUuid) {
+          const profiles = getLocal<Profile[]>('profiles', MOCK_PROFILES);
+          const localBuyer = profiles.find(p => p.id === buyerId);
+          await supabase!.from('profiles').upsert({
+            id: buyerUuid,
+            full_name: localBuyer?.full_name || 'Student Buyer',
+            role: 'buyer'
+          }, { onConflict: 'id', ignoreDuplicates: true });
+        }
+      } catch (profileUpsertErr) {
+        console.warn('Profiles upsert warning in joinGroupOrder:', profileUpsertErr);
+      }
 
       // 1. Ensure product exists in Supabase products table
       const { data: existingSupaProd } = await supabase!
@@ -1428,10 +1451,8 @@ export const dbService = {
       console.warn('Supabase Live Order persistence warning (fallback to local order):', dbErr);
     }
 
+    mockRealtime.emit('orders_updated', {});
     return newOrder;
-    const allGroups = await this.getGroupOrders();
-    mockRealtime.emit('groups_updated', allGroups);
-    mockRealtime.emit('notifications_updated', {});
 
     return { ...newOrder, payment_reference: finalRef };
   },
@@ -1443,16 +1464,16 @@ export const dbService = {
     const products = await this.getProducts();
     
     const mappedLocalOrders: Order[] = localOrders
-      .filter(o => o.buyer_id === buyerId)
+      .filter(o => o.buyer_id === buyerId || (buyerId === 'buyer-1' && !isUuid(o.buyer_id)))
       .map(o => {
         const grp = groupOrders.find(g => g.id === o.group_order_id);
-        const prod = grp ? products.find(p => p.id === grp.product_id) : null;
+        const prod = grp ? products.find(p => p.id === grp.product_id) : (products.find(p => p.id === o.product_id));
         return {
           ...o,
           product_id: prod ? prod.id : (o.product_id || ''),
           product_name: prod ? prod.name : (o.product_name || 'Group Purchase'),
           product_image: prod ? prod.image_url : (o.product_image || ''),
-          portion_size: prod ? prod.shares_per_person : (o.portion_size || ''),
+          portion_size: prod ? prod.shares_per_person : (o.portion_size || '1 Portion'),
           unit_price: prod ? prod.price_per_share : (o.unit_price || 0),
           trader_name: prod ? prod.trader_name : (o.trader_name || 'KoboWise Main Market Store'),
           estimated_delivery: prod ? prod.estimated_delivery : (o.estimated_delivery || 'Same Day Delivery'),
@@ -1460,41 +1481,65 @@ export const dbService = {
         };
       });
 
-    if (isDemoMode || !isUuid(buyerId) || !supabase) {
+    if (isDemoMode || !supabase) {
       return mappedLocalOrders.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }
     
     try {
+      const buyerUuid = isUuid(buyerId) ? buyerId : toUuid(buyerId);
       const { data, error } = await supabase!
         .from('orders')
-        .select('*, group_orders(*, products(*, profiles(full_name)))')
-        .eq('buyer_id', buyerId)
+        .select('*')
+        .or(`buyer_id.eq.${buyerUuid}${isUuid(buyerId) ? `,buyer_id.eq.${buyerId}` : ''}`)
         .order('created_at', { ascending: false });
 
       if (error || !data) {
         return mappedLocalOrders.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       }
 
+      let supaGroups: any[] = [];
+      try {
+        const { data: gData } = await supabase!.from('group_orders').select('*');
+        if (gData) supaGroups = gData;
+      } catch {}
+
       const mappedSupabaseOrders: Order[] = data.map(o => {
-        const prod = o.group_orders?.products;
+        const grp = supaGroups.find(g => g.id === o.group_order_id) || groupOrders.find(g => g.id === o.group_order_id);
+        const prodId = grp?.product_id || o.product_id;
+        const prod = products.find(p => p.id === prodId || toUuid(p.id) === prodId);
+
         return {
-          ...o,
-          product_id: prod?.id || '',
+          id: o.id,
+          buyer_id: o.buyer_id,
+          group_order_id: o.group_order_id,
+          shares_bought: o.shares_bought,
+          total_price: Number(o.total_price),
+          status: o.status as Order['status'],
+          payment_method: o.payment_method || 'Paystack',
+          payment_reference: o.payment_reference || o.id,
+          created_at: o.created_at,
+          product_id: prod?.id || prodId || '',
           product_name: prod?.name || 'Group Purchase',
           product_image: prod?.image_url || '',
-          portion_size: prod?.shares_per_person || '',
-          unit_price: prod?.price_per_share || 0,
-          trader_name: prod?.profiles?.full_name || 'KoboWise Main Market Store',
+          portion_size: prod?.shares_per_person || '1 Portion',
+          unit_price: prod?.price_per_share || (Number(o.total_price) / (o.shares_bought || 1)),
+          trader_name: prod?.trader_name || 'KoboWise Main Market Store',
           estimated_delivery: prod?.estimated_delivery || 'Same Day Delivery',
           pickup_location: prod?.pickup_location || 'DELSU Site II Gate'
         };
       });
 
       const combinedMap = new Map<string, Order>();
-      mappedLocalOrders.forEach(o => combinedMap.set(o.id, o));
-      mappedSupabaseOrders.forEach(o => combinedMap.set(o.id, o));
+      mappedLocalOrders.forEach(o => {
+        combinedMap.set(o.id, o);
+        if (o.payment_reference) combinedMap.set(o.payment_reference, o);
+      });
+      mappedSupabaseOrders.forEach(o => {
+        combinedMap.set(o.id, o);
+        if (o.payment_reference) combinedMap.set(o.payment_reference, o);
+      });
 
-      return Array.from(combinedMap.values()).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      return Array.from(new Set(Array.from(combinedMap.values()))).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     } catch {
       return mappedLocalOrders.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }
@@ -1522,22 +1567,18 @@ export const dbService = {
     const allProducts = Array.from(productMap.values());
 
     const mappedLocal: Order[] = localOrders
-      .filter(o => {
-        if (isStandardTrader) return true; // Standard trader manages all orders
-        const grp = groupOrders.find(g => g.id === o.group_order_id);
-        const prod = grp ? allProducts.find(p => p.id === grp.product_id) : null;
-        if (prod) {
-          return prod.trader_id === traderId || !isUuid(prod.trader_id);
-        }
-        return !isUuid(o.id) || !isUuid(o.group_order_id) || (o.payment_reference && !isUuid(o.payment_reference));
-      })
       .map(o => {
         const grp = groupOrders.find(g => g.id === o.group_order_id);
-        const prod = grp ? allProducts.find(p => p.id === grp.product_id) : null;
+        const prod = grp ? allProducts.find(p => p.id === grp.product_id) : (allProducts.find(p => p.id === o.product_id));
         const buyer = profiles.find(p => p.id === o.buyer_id);
         return {
           ...o,
+          product_id: prod ? prod.id : (o.product_id || ''),
           product_name: prod ? prod.name : (o.product_name || 'Group Purchase'),
+          product_image: prod ? prod.image_url : (o.product_image || ''),
+          portion_size: prod ? prod.shares_per_person : (o.portion_size || '1 Portion'),
+          unit_price: prod ? prod.price_per_share : (o.unit_price || 0),
+          trader_name: prod ? (prod.trader_name || 'KoboWise Store') : (o.trader_name || 'KoboWise Store'),
           buyer_name: buyer ? buyer.full_name : (o.buyer_name || 'Student Buyer'),
           pickup_location: prod ? prod.pickup_location : (o.pickup_location || 'DELSU Site II Gate Shop 1B')
         };
@@ -1548,55 +1589,88 @@ export const dbService = {
     }
 
     try {
-      // Fetch all orders from Supabase (placed by live buyers)
+      // 1. Fetch all orders from Supabase (simple SELECT * to prevent join relationship errors)
       const { data: supaOrders, error: supaErr } = await supabase!
         .from('orders')
-        .select('*, group_orders(*, products(*, profiles(full_name)))')
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (supaErr || !supaOrders) {
+        console.warn('getTraderOrders: Supabase orders fetch warning:', supaErr);
         return mappedLocal.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       }
 
-      // Fetch buyer profiles for these orders
-      const buyerIds = [...new Set(supaOrders.map((o: any) => o.buyer_id).filter(isUuid))];
+      // 2. Fetch group orders to link orders to products
+      let supaGroups: any[] = [];
+      try {
+        const { data: gData } = await supabase!.from('group_orders').select('*');
+        if (gData) supaGroups = gData;
+      } catch {}
+
+      // 3. Fetch buyer profiles for names
+      const buyerIds = [...new Set(supaOrders.map((o: any) => o.buyer_id).filter(Boolean))];
       let buyerProfiles: { id: string; full_name: string }[] = [];
       if (buyerIds.length > 0) {
-        const { data: profilesData } = await supabase!
-          .from('profiles')
-          .select('id, full_name')
-          .in('id', buyerIds);
-        buyerProfiles = profilesData || [];
+        try {
+          const { data: profilesData } = await supabase!
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', buyerIds);
+          if (profilesData) buyerProfiles = profilesData;
+        } catch {}
       }
       const buyerMap = new Map(buyerProfiles.map(b => [b.id, b.full_name]));
 
-      const mappedSupa: Order[] = supaOrders
-        .filter((o: any) => {
-          if (isStandardTrader) return true;
-          const prod = o.group_orders?.products;
-          return prod && prod.trader_id === traderId;
-        })
-        .map((o: any) => {
-          const prod = o.group_orders?.products;
-          return {
-            ...o,
-            product_id: prod?.id || o.product_id || '',
-            product_name: prod?.name || o.product_name || 'Group Purchase',
-            product_image: prod?.image_url || o.product_image || '',
-            portion_size: prod?.shares_per_person || o.portion_size || '',
-            unit_price: prod?.price_per_share || o.unit_price || 0,
-            trader_name: 'KoboWise Store',
-            pickup_location: prod?.pickup_location || o.pickup_location || 'DELSU Site II Gate Shop 1B',
-            buyer_name: buyerMap.get(o.buyer_id) || o.buyer_name || 'Student Buyer'
-          } as Order;
-        });
+      const mappedSupa: Order[] = supaOrders.map((o: any) => {
+        const grp = supaGroups.find(g => g.id === o.group_order_id) || groupOrders.find(g => g.id === o.group_order_id);
+        const prodId = grp?.product_id || o.product_id;
+        const prod = allProducts.find(p => p.id === prodId || toUuid(p.id) === prodId);
+        const buyerName = buyerMap.get(o.buyer_id) || profiles.find(p => p.id === o.buyer_id)?.full_name || 'Student Buyer';
+
+        return {
+          id: o.id,
+          buyer_id: o.buyer_id,
+          group_order_id: o.group_order_id,
+          shares_bought: o.shares_bought,
+          total_price: Number(o.total_price),
+          status: o.status as Order['status'],
+          payment_method: o.payment_method || 'Paystack',
+          payment_reference: o.payment_reference || o.id,
+          created_at: o.created_at,
+          product_id: prod?.id || prodId || '',
+          product_name: prod?.name || 'Group Purchase',
+          product_image: prod?.image_url || '',
+          portion_size: prod?.shares_per_person || '1 Portion',
+          unit_price: prod?.price_per_share || (Number(o.total_price) / (o.shares_bought || 1)),
+          trader_name: prod?.trader_name || 'KoboWise Store',
+          pickup_location: prod?.pickup_location || 'DELSU Site II Gate Shop 1B',
+          buyer_name: buyerName
+        } as Order;
+      });
 
       // Merge: Supabase data & Local data
       const combinedMap = new Map<string, Order>();
-      mappedLocal.forEach(o => combinedMap.set(o.id, o));
-      mappedSupa.forEach(o => combinedMap.set(o.id, o));
+      mappedLocal.forEach(o => {
+        combinedMap.set(o.id, o);
+        if (o.payment_reference) combinedMap.set(o.payment_reference, o);
+      });
+      mappedSupa.forEach(o => {
+        combinedMap.set(o.id, o);
+        if (o.payment_reference) combinedMap.set(o.payment_reference, o);
+      });
 
-      return Array.from(combinedMap.values()).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      const uniqueOrders = Array.from(new Set(Array.from(combinedMap.values())));
+
+      // Filter: if standard trader (demo or live default), display all orders.
+      // If a specific trader, display orders for their products or general catalog products.
+      const filtered = uniqueOrders.filter(o => {
+        if (isStandardTrader) return true;
+        const prod = allProducts.find(p => p.id === o.product_id);
+        if (!prod) return true;
+        return prod.trader_id === traderId || prod.trader_id === 'trader-1' || !isUuid(prod.trader_id);
+      });
+
+      return filtered.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     } catch (err) {
       console.error('getTraderOrders unexpected error:', err);
       return mappedLocal.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());

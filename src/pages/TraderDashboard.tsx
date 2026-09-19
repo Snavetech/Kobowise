@@ -298,9 +298,9 @@ export const TraderDashboard: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
-  // Calculations for Trader Analytics
+  // Calculations for Trader Analytics: all paid/processing/delivered orders count as revenue
   const totalSalesRevenue = orders
-    .filter(o => o.status === 'delivered')
+    .filter(o => o.status !== 'cancelled')
     .reduce((acc, o) => acc + o.total_price, 0);
 
   // Dynamic Monthly Revenue Calculation matching current time and date
@@ -465,30 +465,46 @@ export const TraderDashboard: React.FC = () => {
             { id: 'analytics', label: 'Dashboard Stats', icon: <TrendingUp size={16} /> },
             { id: 'products', label: 'Manage Inventory', icon: <ClipboardList size={16} /> },
             { id: 'orders', label: 'Buyer Orders', icon: <ShoppingBag size={16} /> }
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '12px 6px',
-                border: 'none',
-                background: 'none',
-                fontWeight: '700',
-                fontSize: '14px',
-                color: activeTab === tab.id ? '#2563EB' : 'var(--text-secondary)',
-                borderBottom: activeTab === tab.id ? '3px solid #2563EB' : '3px solid transparent',
-                cursor: 'pointer',
-                transition: 'all var(--transition-fast)',
-                flexShrink: 0
-              }}
-            >
-              {tab.icon}
-              {tab.label}
-            </button>
-          ))}
+          ].map((tab) => {
+            const pendingOrdersCount = orders.filter(o => o.status !== 'delivered' && o.status !== 'cancelled').length;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '12px 6px',
+                  border: 'none',
+                  background: 'none',
+                  fontWeight: '700',
+                  fontSize: '14px',
+                  color: activeTab === tab.id ? '#2563EB' : 'var(--text-secondary)',
+                  borderBottom: activeTab === tab.id ? '3px solid #2563EB' : '3px solid transparent',
+                  cursor: 'pointer',
+                  transition: 'all var(--transition-fast)',
+                  flexShrink: 0
+                }}
+              >
+                {tab.icon}
+                {tab.label}
+                {tab.id === 'orders' && pendingOrdersCount > 0 && (
+                  <span style={{
+                    backgroundColor: '#2563EB',
+                    color: '#FFFFFF',
+                    fontSize: '11px',
+                    fontWeight: '800',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    marginLeft: '2px'
+                  }}>
+                    {pendingOrdersCount}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {/* ====================================================================
@@ -540,7 +556,27 @@ export const TraderDashboard: React.FC = () => {
               </div>
 
               {/* Card 3: Pending Orders */}
-              <div style={{ backgroundColor: '#FFFFFF', padding: '24px', borderRadius: '20px', border: '1px solid var(--border-color)', boxShadow: '0 2px 8px rgba(30, 64, 175, 0.04)', position: 'relative' }}>
+              <div 
+                onClick={() => setActiveTab('orders')}
+                style={{ 
+                  backgroundColor: '#FFFFFF', 
+                  padding: '24px', 
+                  borderRadius: '20px', 
+                  border: '1px solid var(--border-color)', 
+                  boxShadow: '0 2px 8px rgba(30, 64, 175, 0.04)', 
+                  position: 'relative',
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s, box-shadow 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(30, 64, 175, 0.08)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(30, 64, 175, 0.04)';
+                }}
+              >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
                   <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: 'rgba(249, 168, 37, 0.1)', color: 'var(--status-pending)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Clock size={20} style={{ margin: 'auto' }} />
@@ -555,6 +591,9 @@ export const TraderDashboard: React.FC = () => {
                 <strong style={{ fontSize: '26px', color: '#0F172A', fontWeight: '800', fontFamily: 'var(--font-heading)', display: 'block', marginTop: '4px' }}>
                   {orders.filter(o => o.status !== 'delivered' && o.status !== 'cancelled').length} orders
                 </strong>
+                <span style={{ fontSize: '11px', color: '#2563EB', fontWeight: '700', marginTop: '8px', display: 'inline-block' }}>
+                  Click to manage &rarr;
+                </span>
               </div>
 
               {/* Card 4: Completed Orders */}
@@ -720,7 +759,128 @@ export const TraderDashboard: React.FC = () => {
                   ))}
                 </div>
               </div>
+            </div>
 
+            {/* Recent Customer Orders Preview */}
+            <div style={{ 
+              backgroundColor: '#FFFFFF', 
+              border: '1px solid var(--border-color)', 
+              borderRadius: '24px', 
+              padding: '28px', 
+              boxShadow: '0 2px 8px rgba(30, 64, 175, 0.03)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                  <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                    <ShoppingBag size={20} style={{ color: '#2563EB' }} /> Recent Customer Purchases
+                  </h3>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    Live orders from students awaiting pickup or delivery
+                  </span>
+                </div>
+                <button
+                  onClick={() => setActiveTab('orders')}
+                  style={{
+                    backgroundColor: '#EFF6FF',
+                    color: '#2563EB',
+                    border: '1px solid #BFDBFE',
+                    borderRadius: '10px',
+                    padding: '8px 16px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  View All Orders ({orders.length}) &rarr;
+                </button>
+              </div>
+
+              {orders.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '30px', backgroundColor: '#F8FAFC', borderRadius: '16px' }}>
+                  <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '14px' }}>No orders placed yet. Orders will appear here automatically when students join group buys.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {orders.slice(0, 4).map(o => (
+                    <div 
+                      key={o.id}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '16px',
+                        backgroundColor: '#F8FAFC',
+                        borderRadius: '16px',
+                        border: '1px solid #E2E8F0',
+                        flexWrap: 'wrap',
+                        gap: '12px'
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <strong style={{ fontSize: '15px', color: '#0F172A' }}>{o.product_name}</strong>
+                          {getOrderStatusBadge(o.status)}
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                          Buyer: <strong>{o.buyer_name}</strong> &bull; {o.shares_bought} {o.shares_bought === 1 ? 'portion' : 'portions'} &bull; <strong style={{ color: '#0F172A' }}>{formatCurrency(o.total_price)}</strong>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        {(o.status === 'paid' || o.status === 'processing') && (
+                          <button
+                            onClick={() => handleStatusChange(o.id, 'ready_for_pickup')}
+                            style={{
+                              backgroundColor: '#2563EB',
+                              color: '#FFFFFF',
+                              border: 'none',
+                              padding: '8px 14px',
+                              borderRadius: '8px',
+                              fontSize: '12px',
+                              fontWeight: '700',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Confirm Order
+                          </button>
+                        )}
+                        {o.status === 'ready_for_pickup' && (
+                          <button
+                            onClick={() => handleStatusChange(o.id, 'delivered')}
+                            style={{
+                              backgroundColor: '#10B981',
+                              color: '#FFFFFF',
+                              border: 'none',
+                              padding: '8px 14px',
+                              borderRadius: '8px',
+                              fontSize: '12px',
+                              fontWeight: '700',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            ✓ Mark Delivered
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setActiveTab('orders')}
+                          style={{
+                            backgroundColor: 'transparent',
+                            color: '#64748B',
+                            border: '1px solid #CBD5E1',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Details
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* General Instructions */}
