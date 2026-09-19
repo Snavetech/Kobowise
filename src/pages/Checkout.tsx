@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { dbService, type GroupOrder } from '../supabase';
+import { sendOrderReceiptEmail } from '../services/emailService';
 import { PaystackModal } from '../components/PaystackModal';
 import { 
   ArrowLeft, 
@@ -88,6 +89,27 @@ export const Checkout: React.FC = () => {
           'Paystack',
           reference + '_' + item.product.id
         );
+      }
+
+      // Dispatch Order Confirmation & Escrow Receipt via EmailJS
+      const firstItem = cartItems[0];
+      const buyerEmail = user.email || (user as any)?.email;
+      if (buyerEmail && firstItem) {
+        const productLabel = cartItems.length > 1 
+          ? `${firstItem.product.name} (+${cartItems.length - 1} more items)` 
+          : firstItem.product.name;
+        const totalShares = cartItems.reduce((acc, it) => acc + it.sharesBought, 0);
+
+        sendOrderReceiptEmail({
+          toEmail: buyerEmail,
+          toName: user.full_name,
+          orderId: reference,
+          productName: productLabel,
+          sharesCount: totalShares,
+          totalPrice: formatCurrency(cartTotal),
+          pickupLocation: firstItem.product.pickup_location || 'DELSU Site II Gate',
+          escrowCode: reference.slice(-4).toUpperCase() || 'KBW1'
+        }).catch(err => console.warn('EmailJS receipt dispatch warning:', err));
       }
 
       setLastPaymentRef(reference);
