@@ -91,7 +91,7 @@ export const TraderDashboard: React.FC = () => {
         dbService.getNotifications(user.id)
       ]);
 
-      const traderProds = prods.filter(p => p.trader_id === user.id);
+      const traderProds = user.id === 'trader-1' ? prods : prods.filter(p => p.trader_id === user.id);
 
       setProducts(traderProds);
       setCategories(cats);
@@ -517,7 +517,7 @@ export const TraderDashboard: React.FC = () => {
                   Total Revenue
                 </span>
                 <strong style={{ fontSize: '26px', color: '#0F172A', fontWeight: '800', fontFamily: 'var(--font-heading)', display: 'block', marginTop: '4px' }}>
-                  {formatCurrency(totalSalesRevenue || 437000)}
+                  {formatCurrency(totalSalesRevenue || 0)}
                 </strong>
               </div>
 
@@ -564,14 +564,14 @@ export const TraderDashboard: React.FC = () => {
                     <CheckCircle size={20} style={{ margin: 'auto' }} />
                   </div>
                   <span style={{ fontSize: '11px', fontWeight: '700', color: '#06B6D4', display: 'flex', alignItems: 'center', gap: '2px' }}>
-                    ↗ {completedGroupBuysCount || 5} groups filled
+                    ↗ {completedGroupBuysCount} groups filled
                   </span>
                 </div>
                 <span style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', fontWeight: '700', textTransform: 'uppercase' }}>
                   Completed
                 </span>
                 <strong style={{ fontSize: '26px', color: '#0F172A', fontWeight: '800', fontFamily: 'var(--font-heading)', display: 'block', marginTop: '4px' }}>
-                  {orders.filter(o => o.status === 'delivered').length || 48} orders
+                  {orders.filter(o => o.status === 'delivered').length} orders
                 </strong>
               </div>
             </div>
@@ -865,6 +865,17 @@ export const TraderDashboard: React.FC = () => {
                           style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', border: 'none', color: '#FFFFFF', fontWeight: '800', borderRadius: '12px', padding: '10px 22px' }}
                         >
                           Confirm Order
+                        </button>
+                      )}
+
+                      {/* 2. Ready for Pickup -> Trader marks delivered upon collection */}
+                      {order.status === 'ready_for_pickup' && (
+                        <button 
+                          onClick={() => handleStatusChange(order.id, 'delivered')}
+                          className="btn btn-sm"
+                          style={{ backgroundColor: '#10B981', border: 'none', color: '#FFFFFF', fontWeight: '800', borderRadius: '12px', padding: '10px 22px' }}
+                        >
+                          ✓ Mark as Delivered
                         </button>
                       )}
 

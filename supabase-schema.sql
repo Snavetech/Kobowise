@@ -129,6 +129,18 @@ CREATE TABLE IF NOT EXISTS public.wishlist (
     UNIQUE(product_id, buyer_id)
 );
 
+-- CART (Cloud Cart Synchronization across devices)
+-- Note: Active carts also synchronize in real-time via auth.users metadata
+CREATE TABLE IF NOT EXISTS public.cart_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+    shares_bought INTEGER NOT NULL DEFAULT 1 CHECK (shares_bought > 0),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(user_id, product_id)
+);
+
 -- NOTIFICATIONS
 CREATE TABLE IF NOT EXISTS public.notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -202,6 +214,7 @@ ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.wishlist ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cart_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
 -- Profiles Policies
@@ -289,12 +302,22 @@ CREATE POLICY "Users can view their own wishlist" ON public.wishlist FOR SELECT 
 DROP POLICY IF EXISTS "Users can manage their wishlist" ON public.wishlist;
 CREATE POLICY "Users can manage their wishlist" ON public.wishlist FOR ALL USING (auth.uid() = buyer_id);
 
+-- Cart Policies
+DROP POLICY IF EXISTS "Users can view their own cart" ON public.cart_items;
+CREATE POLICY "Users can view their own cart" ON public.cart_items FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can manage their own cart" ON public.cart_items;
+CREATE POLICY "Users can manage their own cart" ON public.cart_items FOR ALL USING (auth.uid() = user_id);
+
 -- Notifications Policies
 DROP POLICY IF EXISTS "Users can view their own notifications" ON public.notifications;
 CREATE POLICY "Users can view their own notifications" ON public.notifications FOR SELECT USING (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "Users can update their own notifications" ON public.notifications;
 CREATE POLICY "Users can update their own notifications" ON public.notifications FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Anyone can insert notifications" ON public.notifications;
+CREATE POLICY "Anyone can insert notifications" ON public.notifications FOR INSERT WITH CHECK (true);
 
 -- TRADER WAITLIST (Pre-launch signups for campus traders)
 CREATE TABLE IF NOT EXISTS public.trader_waitlist (

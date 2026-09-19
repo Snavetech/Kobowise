@@ -293,7 +293,7 @@ export const ProductQuickViewModal: React.FC<ProductQuickViewModalProps> = ({
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
                 <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <MessageSquare size={18} style={{ color: '#2563EB' }} />
-                  Customer Reviews ({reviews.length || 24})
+                  Customer Reviews ({reviews.length})
                 </h3>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <Star size={16} fill="#F59E0B" stroke="#F59E0B" />

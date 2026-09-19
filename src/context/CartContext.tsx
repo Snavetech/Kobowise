@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { Product } from '../supabase';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import { useAuth } from './AuthContext';
+import { dbService, type Product } from '../supabase';
 
 export interface CartItem {
   product: Product;
@@ -25,30 +26,84 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [deliveryType, setDeliveryType] = useState<'pickup' | 'delivery'>('pickup');
+  const prevUserIdRef = useRef<string | null | undefined>(undefined);
 
-  // Load cart from local storage on mount
-  useEffect(() => {
-    try {
-      const savedCart = localStorage.getItem('kobowise_cart');
-      if (savedCart) {
-        setCartItems(JSON.parse(savedCart));
-      }
-    } catch {
-      // Fallback
-    }
+  // Helper to determine storage key
+  const getStorageKey = useCallback((userId?: string | null) => {
+    return userId ? `kobowise_cart_${userId}` : 'kobowise_cart_guest';
   }, []);
 
-  // Save cart to local storage whenever it changes
-  const saveCart = (items: CartItem[]) => {
+  // Synchronize cart when user logs in, logs out, or switches accounts
+  useEffect(() => {
+    const currentUserId = user?.id || null;
+    
+    // First run or user changed
+    if (prevUserIdRef.current !== currentUserId) {
+      prevUserIdRef.current = currentUserId;
+
+      if (currentUserId) {
+        // User is logged in: fetch their cloud/user-scoped cart
+        const loadUserCart = async () => {
+          try {
+            // Check for guest items to optionally merge
+            let guestItems: CartItem[] = [];
+            const guestSaved = localStorage.getItem('kobowise_cart_guest') || localStorage.getItem('kobowise_cart');
+            if (guestSaved) {
+              try {
+                guestItems = JSON.parse(guestSaved);
+              } catch {}
+            }
+
+            // Fetch user cloud / local cart
+            const userCart = await dbService.getUserCart(currentUserId);
+
+            if (userCart && userCart.length > 0) {
+              setCartItems(userCart);
+            } else if (guestItems.length > 0) {
+              // Merge guest items into new user's cart
+              setCartItems(guestItems);
+              dbService.saveUserCart(currentUserId, guestItems);
+            } else {
+              setCartItems([]);
+            }
+
+            // Clean up legacy/guest storage after assigning to user
+            localStorage.removeItem('kobowise_cart_guest');
+            localStorage.removeItem('kobowise_cart');
+          } catch (err) {
+            console.error('Failed to load user cart:', err);
+          }
+        };
+
+        loadUserCart();
+      } else {
+        // User logged out: clear active in-memory cart
+        // Do not inherit previous user's cart
+        setCartItems([]);
+      }
+    }
+  }, [user?.id, getStorageKey]);
+
+  // Save cart to local storage and sync to cloud if logged in
+  const saveCart = useCallback((items: CartItem[]) => {
     setCartItems(items);
+    const storageKey = getStorageKey(user?.id);
     try {
-      localStorage.setItem('kobowise_cart', JSON.stringify(items));
+      localStorage.setItem(storageKey, JSON.stringify(items));
     } catch {
       // Fallback
     }
-  };
+
+    // Sync to Supabase cloud metadata for logged in users
+    if (user?.id) {
+      dbService.saveUserCart(user.id, items).catch(err => {
+        console.warn('Background cart cloud sync failed:', err);
+      });
+    }
+  }, [user?.id, getStorageKey]);
 
   const addToCart = (product: Product, shares: number) => {
     const existingIndex = cartItems.findIndex(item => item.product.id === product.id);

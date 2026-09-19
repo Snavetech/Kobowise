@@ -267,7 +267,7 @@ export const Profile: React.FC = () => {
             </div>
             <div>
               <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', fontWeight: '700', textTransform: 'uppercase' }}>Wishlist</span>
-              <strong style={{ fontSize: '20px', color: '#0F172A', fontWeight: '800' }}>{wishlist.length || 7} items</strong>
+              <strong style={{ fontSize: '20px', color: '#0F172A', fontWeight: '800' }}>{wishlist.length} {wishlist.length === 1 ? 'item' : 'items'}</strong>
               <span style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block', marginTop: '1px' }}>Saved for later</span>
             </div>
           </div>
