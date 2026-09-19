@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useCart } from '../context/CartContext';
 import { dbService, mockRealtime } from '../supabase';
 import type { Product, Category, GroupOrder } from '../supabase';
 import { ProductCard } from '../components/ProductCard';
@@ -24,7 +23,6 @@ import {
 
 export const Home: React.FC = () => {
   const { user } = useAuth();
-  const { cartItems } = useCart();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isBrowseTab = searchParams.get('tab') === 'browse';
@@ -154,12 +152,9 @@ export const Home: React.FC = () => {
     return undefined;
   };
 
-  const getEffectiveSharesPurchased = (productId: string, totalShares: number) => {
+  const getConfirmedSharesPurchased = (productId: string, totalShares: number) => {
     const g = getProductGroup(productId);
-    const confirmedShares = g ? (g.status === 'completed' ? totalShares : g.shares_purchased) : 0;
-    const cartItem = cartItems.find(item => item.product.id === productId);
-    const cartShares = cartItem ? cartItem.sharesBought : 0;
-    return Math.min(totalShares, confirmedShares + cartShares);
+    return g ? (g.status === 'completed' ? totalShares : g.shares_purchased) : 0;
   };
 
   // Filtering products
@@ -180,33 +175,33 @@ export const Home: React.FC = () => {
     if (sortBy === 'price_desc') {
       return b.price_per_share - a.price_per_share;
     }
-    // Default: recommended (higher group progress first)
-    const progressA = getEffectiveSharesPurchased(a.id, a.total_shares) / a.total_shares;
-    const progressB = getEffectiveSharesPurchased(b.id, b.total_shares) / b.total_shares;
+    // Default: recommended (higher group progress first, using confirmed pool shares so order stays stable during join)
+    const progressA = getConfirmedSharesPurchased(a.id, a.total_shares) / a.total_shares;
+    const progressB = getConfirmedSharesPurchased(b.id, b.total_shares) / b.total_shares;
     return progressB - progressA;
   });
 
-  // Groupings for home layout (Status based)
+  // Groupings for home layout (Stable based on pool state, so clicking Join does NOT cause product to vanish)
   const almostCompleteProducts = sortedProducts.filter(p => {
-    const effectiveShares = getEffectiveSharesPurchased(p.id, p.total_shares);
-    return (p.total_shares - effectiveShares) === 1;
+    const poolShares = getConfirmedSharesPurchased(p.id, p.total_shares);
+    return (p.total_shares - poolShares) === 1;
   });
 
   const nearlyFullProducts = sortedProducts.filter(p => {
-    const effectiveShares = getEffectiveSharesPurchased(p.id, p.total_shares);
-    return (p.total_shares - effectiveShares) === 2;
+    const poolShares = getConfirmedSharesPurchased(p.id, p.total_shares);
+    return (p.total_shares - poolShares) === 2;
   });
 
   const halfwayThereProducts = sortedProducts.filter(p => {
-    const effectiveShares = getEffectiveSharesPurchased(p.id, p.total_shares);
-    const left = p.total_shares - effectiveShares;
-    return left >= 3 && effectiveShares > 0;
+    const poolShares = getConfirmedSharesPurchased(p.id, p.total_shares);
+    const left = p.total_shares - poolShares;
+    return left >= 3 && poolShares > 0;
   });
 
   const newlyListedProducts = sortedProducts.filter(p => {
-    const effectiveShares = getEffectiveSharesPurchased(p.id, p.total_shares);
-    const left = p.total_shares - effectiveShares;
-    return effectiveShares === 0 || left <= 0;
+    const poolShares = getConfirmedSharesPurchased(p.id, p.total_shares);
+    const left = p.total_shares - poolShares;
+    return poolShares === 0 || left <= 0;
   });
 
   // Groupings by split size (1, 2, 3, 4 buyers)

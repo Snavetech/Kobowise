@@ -21,6 +21,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const existingCartItem = cartItems.find(item => item.product.id === product.id);
   const isAlreadyInCart = !!existingCartItem;
   const [isWished, setIsWished] = useState(false);
+  const [justJoined, setJustJoined] = useState(false);
 
   useEffect(() => {
     const checkWishlist = async () => {
@@ -268,37 +269,77 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </div>
 
         {/* Progress Bar */}
-        <div style={{ margin: '14px 0 16px 0' }}>
+        <div style={{ margin: '14px 0 16px 0', position: 'relative' }}>
+          {justJoined && (
+            <div style={{
+              position: 'absolute',
+              top: '-24px',
+              right: '0',
+              backgroundColor: '#10B981',
+              color: '#FFFFFF',
+              fontSize: '10px',
+              fontWeight: '800',
+              padding: '2px 8px',
+              borderRadius: '8px',
+              boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+              animation: 'popBadge 2.2s forwards',
+              zIndex: 10,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}>
+              +1 Share Joined! 🎉
+            </div>
+          )}
+
           <div style={{ 
-            height: '7px', 
+            height: '8px', 
             backgroundColor: '#DBEAFE', 
-            borderRadius: '4px', 
+            borderRadius: '6px', 
             overflow: 'hidden',
-            marginBottom: '10px'
+            marginBottom: '10px',
+            position: 'relative'
           }}>
             <div style={{
               height: '100%',
               width: `${percentage}%`,
               background: isComplete 
-                ? 'linear-gradient(90deg, #2563EB, #60A5FA)' 
+                ? 'linear-gradient(90deg, #059669, #10B981)' 
                 : 'linear-gradient(90deg, #2563EB, #3B82F6)',
-              borderRadius: '4px',
-              transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
-            }} />
+              borderRadius: '6px',
+              transition: 'width 0.8s cubic-bezier(0.34, 1.4, 0.64, 1)',
+              position: 'relative',
+              overflow: 'hidden',
+              boxShadow: justJoined ? '0 0 12px rgba(37, 99, 235, 0.6)' : 'none'
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent)',
+                animation: 'progressShimmer 2s infinite linear'
+              }} />
+            </div>
           </div>
           
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '12px', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700' }}>
-              <Users size={14} style={{ color: isComplete ? '#2563EB' : '#3B82F6' }} />
-              {sharesPurchased} of {totalShares} buyers joined
+              <Users size={14} style={{ color: isComplete ? '#059669' : '#2563EB', transition: 'color 0.3s' }} />
+              <span style={{ transition: 'all 0.3s' }}>
+                {sharesPurchased} of {totalShares} buyers joined
+              </span>
             </span>
             <span style={{ 
               fontSize: '11px', 
               fontWeight: '800', 
-              color: isComplete ? '#1E40AF' : '#2563EB',
-              backgroundColor: isComplete ? '#BFDBFE' : '#EFF6FF',
+              color: isComplete ? '#065F46' : '#2563EB',
+              backgroundColor: isComplete ? '#D1FAE5' : '#EFF6FF',
               padding: '2px 8px',
-              borderRadius: '6px'
+              borderRadius: '6px',
+              transition: 'all 0.3s',
+              transform: justJoined ? 'scale(1.15)' : 'scale(1)'
             }}>
               {Math.round(percentage)}%
             </span>
@@ -370,7 +411,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
+                setJustJoined(true);
                 addToCart(product, 1);
+                setTimeout(() => setJustJoined(false), 2200);
               }}
               className="btn-push"
               style={{
