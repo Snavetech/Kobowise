@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { dbService, type GroupOrder, type Order } from '../supabase';
+import { dbService, type GroupOrder } from '../supabase';
 import { sendOrderReceiptEmail } from '../services/emailService';
 import { PaystackModal } from '../components/PaystackModal';
 import { 
@@ -42,7 +42,6 @@ export const Checkout: React.FC = () => {
   const [lastPaymentRef, setLastPaymentRef] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [placingOrder, setPlacingOrder] = useState(false);
-  const [createdOrders, setCreatedOrders] = useState<Order[]>([]);
   
   // Promo code
   const [promoCode, setPromoCode] = useState('');
@@ -70,33 +69,7 @@ export const Checkout: React.FC = () => {
       return;
     }
     setErrorMsg('');
-    setPlacingOrder(true);
-
-    try {
-      if (!user) throw new Error('User not logged in');
-
-      // 1. Create order(s) under 'to_pay' status in Purchase History
-      const placed: Order[] = [];
-      const baseRef = `KBW-${Date.now().toString().slice(-6)}`;
-      for (const item of cartItems) {
-        const ord = await dbService.joinGroupOrder(
-          user.id,
-          item.product.id,
-          item.sharesBought,
-          'Pending Payment',
-          `${baseRef}-${item.product.id}`,
-          'to_pay'
-        );
-        if (ord) placed.push(ord);
-      }
-      setCreatedOrders(placed);
-      setIsPaystackOpen(true);
-    } catch (err: any) {
-      console.error('Checkout creation error:', err);
-      setErrorMsg(err.message || 'An error occurred during order creation. Please try again.');
-    } finally {
-      setPlacingOrder(false);
-    }
+    setIsPaystackOpen(true);
   };
 
   const handlePaymentSuccess = async (reference: string) => {
@@ -107,22 +80,15 @@ export const Checkout: React.FC = () => {
     try {
       if (!user) throw new Error('User not logged in');
 
-      // Transition created orders from 'to_pay' to 'processing'
-      if (createdOrders.length > 0) {
-        for (const ord of createdOrders) {
-          await dbService.payOrder(ord.id, 'Paystack', `${reference}_${ord.product_id}`);
-        }
-      } else {
-        for (const item of cartItems) {
-          await dbService.joinGroupOrder(
-            user.id,
-            item.product.id,
-            item.sharesBought,
-            'Paystack',
-            reference + '_' + item.product.id,
-            'processing'
-          );
-        }
+      for (const item of cartItems) {
+        await dbService.joinGroupOrder(
+          user.id,
+          item.product.id,
+          item.sharesBought,
+          'Paystack',
+          `${reference}_${item.product.id}`,
+          'processing'
+        );
       }
 
       // Dispatch Order Confirmation & Escrow Receipt via EmailJS
@@ -159,15 +125,6 @@ export const Checkout: React.FC = () => {
 
   const handlePaymentCancel = () => {
     setIsPaystackOpen(false);
-    if (createdOrders.length > 0) {
-      clearCart();
-      setNoticeModal({
-        isOpen: true,
-        title: 'Order Saved in "To Pay"',
-        message: 'Your order has been placed and saved under "To Pay" in your Purchase History! You can complete your payment whenever you are ready.',
-        type: 'info'
-      });
-    }
   };
 
   const formatCurrency = (val: number) => {

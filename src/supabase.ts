@@ -1384,7 +1384,7 @@ export const dbService = {
           price_per_share: product.price_per_share,
           stock_quantity: product.stock_quantity,
           image_url: product.image_url,
-          status: 'pending',
+          status: 'active',
           estimated_delivery: product.estimated_delivery,
           pickup_location: product.pickup_location,
           shares_per_person: product.shares_per_person
@@ -1428,19 +1428,25 @@ export const dbService = {
           .eq('id', currentGroup.id);
 
         // 3. Create Order Transaction in Supabase
-        const { data: supaOrder } = await supabase!
+        // Note: Supabase orders.status check constraint requires 'paid', 'processing', 'ready_for_pickup', 'delivered', 'cancelled'
+        const supaOrderStatus = initialStatus === 'to_pay' ? 'processing' : initialStatus;
+        const { data: supaOrder, error: orderInsertErr } = await supabase!
           .from('orders')
           .insert({
             buyer_id: buyerUuid,
             group_order_id: currentGroup.id,
             shares_bought: sharesToBuy,
             total_price: sharesToBuy * product.price_per_share,
-            status: initialStatus,
+            status: supaOrderStatus,
             payment_method: paymentMethod,
             payment_reference: finalRef
           })
           .select()
           .single();
+
+        if (orderInsertErr) {
+          console.warn('Error inserting order in Supabase:', orderInsertErr);
+        }
 
         if (supaOrder) {
           await supabase!.from('order_items').insert({
@@ -1450,30 +1456,33 @@ export const dbService = {
             price_paid: sharesToBuy * product.price_per_share
           });
 
-          if (initialStatus === 'processing') {
-            await supabase!.from('payments').insert({
-              order_id: supaOrder.id,
-              amount: sharesToBuy * product.price_per_share,
-              reference: finalRef,
-              status: 'success'
-            });
-          }
+          await supabase!.from('payments').insert({
+            order_id: supaOrder.id,
+            amount: sharesToBuy * product.price_per_share,
+            reference: finalRef,
+            status: 'success'
+          });
 
           await supabase!.from('notifications').insert({
             user_id: buyerUuid,
-            title: initialStatus === 'to_pay' ? 'Order Placed (To Pay)' : 'Joined Group Buy!',
-            message: initialStatus === 'to_pay'
-              ? `Order ${finalRef} (${product.name}) placed. Proceed to pay under "To Pay" in Purchase History.`
-              : `Successfully paid ₦${sharesToBuy * product.price_per_share} for Order ${finalRef} (${product.name}).`
+            title: 'Joined Group Buy!',
+            message: `Successfully paid ₦${sharesToBuy * product.price_per_share} for Order ${finalRef} (${product.name}).`
           });
 
-          if (isCompleted) {
+          // Notify trader in Supabase
+          if (traderIdForDb) {
             await supabase!.from('notifications').insert({
               user_id: traderIdForDb,
-              title: 'Group Complete - Fulfill Order!',
-              message: `The group buy for "${product.name}" is completed. Please prep the items for pickup at ${product.pickup_location}.`
+              title: isCompleted ? 'Group Complete - Fulfill Order!' : 'New Buyer Order Received!',
+              message: isCompleted
+                ? `The group buy for "${product.name}" is completed. Please prep the items for pickup at ${product.pickup_location}.`
+                : `New order #${finalRef.substring(0, 10)} placed for "${product.name}" (${sharesToBuy} portion(s)). Please confirm on your Trader Dashboard.`
             });
           }
+
+          mockRealtime.emit('orders_updated', {});
+          mockRealtime.emit('notifications_updated', {});
+          return { ...newOrder, id: supaOrder.id };
         }
       }
     } catch (dbErr) {
@@ -1546,7 +1555,26 @@ export const dbService = {
         } else {
           query = query.eq('payment_reference', order.id);
         }
-        await query;
+        const { data: updatedRows, error: updateErr } = await query.select();
+
+        // If order did not exist in Supabase yet, insert it directly
+        if (!updateErr && (!updatedRows || updatedRows.length === 0)) {
+          const buyerUuid = isUuid(order.buyer_id) ? order.buyer_id : toUuid(order.buyer_id);
+          const grpUuid = isUuid(order.group_order_id) ? order.group_order_id : toUuid(order.group_order_id);
+          const insertPayload: any = {
+            buyer_id: buyerUuid,
+            group_order_id: grpUuid,
+            shares_bought: order.shares_bought,
+            total_price: order.total_price,
+            status: 'processing',
+            payment_method: order.payment_method,
+            payment_reference: order.payment_reference
+          };
+          if (isUuid(order.id)) {
+            insertPayload.id = order.id;
+          }
+          await supabase.from('orders').insert(insertPayload);
+        }
       } catch (err) {
         console.error('payOrder Supabase update error:', err);
       }
@@ -1578,39 +1606,29 @@ export const dbService = {
           product_image: prod ? prod.image_url : (o.product_image || ''),
           portion_size: prod ? prod.shares_per_person : (o.portion_size || '1 Portion'),
           unit_price: prod ? prod.price_per_share : (o.unit_price || 0),
-          trader_name: prod ? prod.trader_name : (o.trader_name || 'KoboWise Main Market Store'),
+          trader_name: prod ? (prod.trader_name || 'KoboWise Store') : (o.trader_name || 'KoboWise Store'),
           estimated_delivery: prod ? prod.estimated_delivery : (o.estimated_delivery || 'Same Day Delivery'),
-          pickup_location: prod ? prod.pickup_location : (o.pickup_location || 'DELSU Site II Gate')
+          pickup_location: prod ? prod.pickup_location : (o.pickup_location || 'DELSU Site II Gate Shop 1B')
         };
       });
 
-    if (isDemoMode || !supabase) {
+    if (isDemoMode || !supabase || !isUuid(buyerId)) {
       return mappedLocalOrders.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }
-    
+
     try {
-      const buyerUuid = isUuid(buyerId) ? buyerId : toUuid(buyerId);
       const { data, error } = await supabase!
         .from('orders')
-        .select('*')
-        .or(`buyer_id.eq.${buyerUuid}${isUuid(buyerId) ? `,buyer_id.eq.${buyerId}` : ''}`)
+        .select('*, group_orders(*, products(*, profiles(full_name)))')
+        .eq('buyer_id', buyerId)
         .order('created_at', { ascending: false });
 
-      if (error || !data) {
+      if (error || !data || data.length === 0) {
         return mappedLocalOrders.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       }
 
-      let supaGroups: any[] = [];
-      try {
-        const { data: gData } = await supabase!.from('group_orders').select('*');
-        if (gData) supaGroups = gData;
-      } catch {}
-
-      const mappedSupabaseOrders: Order[] = data.map(o => {
-        const grp = supaGroups.find(g => g.id === o.group_order_id) || groupOrders.find(g => g.id === o.group_order_id);
-        const prodId = grp?.product_id || o.product_id;
-        const prod = products.find(p => p.id === prodId || toUuid(p.id) === prodId);
-
+      const mappedSupaOrders: Order[] = data.map((o: any) => {
+        const prod = o.group_orders?.products;
         return {
           id: o.id,
           buyer_id: o.buyer_id,
@@ -1621,28 +1639,29 @@ export const dbService = {
           payment_method: o.payment_method || 'Paystack',
           payment_reference: o.payment_reference || o.id,
           created_at: o.created_at,
-          product_id: prod?.id || prodId || '',
+          product_id: prod?.id || '',
           product_name: prod?.name || 'Group Purchase',
           product_image: prod?.image_url || '',
           portion_size: prod?.shares_per_person || '1 Portion',
           unit_price: prod?.price_per_share || (Number(o.total_price) / (o.shares_bought || 1)),
-          trader_name: prod?.trader_name || 'KoboWise Main Market Store',
-          estimated_delivery: prod?.estimated_delivery || 'Same Day Delivery',
-          pickup_location: prod?.pickup_location || 'DELSU Site II Gate'
-        };
+          trader_name: prod?.profiles?.full_name || prod?.trader_name || 'KoboWise Store',
+          pickup_location: prod?.pickup_location || 'DELSU Site II Gate Shop 1B'
+        } as Order;
       });
 
-      const combinedMap = new Map<string, Order>();
+      // Combine supa and local
+      const orderMap = new Map<string, Order>();
       mappedLocalOrders.forEach(o => {
-        combinedMap.set(o.id, o);
-        if (o.payment_reference) combinedMap.set(o.payment_reference, o);
+        orderMap.set(o.id, o);
+        if (o.payment_reference) orderMap.set(o.payment_reference, o);
       });
-      mappedSupabaseOrders.forEach(o => {
-        combinedMap.set(o.id, o);
-        if (o.payment_reference) combinedMap.set(o.payment_reference, o);
+      mappedSupaOrders.forEach(o => {
+        orderMap.set(o.id, o);
+        if (o.payment_reference) orderMap.set(o.payment_reference, o);
       });
 
-      return Array.from(new Set(Array.from(combinedMap.values()))).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      return Array.from(new Set(Array.from(orderMap.values())))
+        .sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     } catch {
       return mappedLocalOrders.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }
@@ -1764,13 +1783,21 @@ export const dbService = {
 
       const uniqueOrders = Array.from(new Set(Array.from(combinedMap.values())));
 
-      // Filter: if standard trader (demo or live default), display all orders.
-      // If a specific trader, display orders for their products or general catalog products.
+      // Filter: Show orders to this trader
       const filtered = uniqueOrders.filter(o => {
         if (isStandardTrader) return true;
-        const prod = allProducts.find(p => p.id === o.product_id);
+        const prod = allProducts.find(p => p.id === o.product_id || toUuid(p.id) === o.product_id);
+        // If product info is missing, show order anyway so it's not lost
         if (!prod) return true;
-        return prod.trader_id === traderId || prod.trader_id === 'trader-1' || !isUuid(prod.trader_id);
+        // If product is listed by this trader
+        if (prod.trader_id === traderId) return true;
+        // If product is standard/catalog or unassigned
+        if (prod.trader_id === 'trader-1' || !prod.trader_id || !isUuid(prod.trader_id)) return true;
+        // If the product is not explicitly owned by another DIFFERENT registered trader
+        const otherTrader = profiles.find(pr => pr.id === prod.trader_id && pr.role === 'trader' && pr.id !== traderId);
+        if (!otherTrader) return true;
+
+        return false;
       });
 
       return filtered.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());

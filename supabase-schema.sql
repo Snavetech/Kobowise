@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS public.orders (
     group_order_id UUID NOT NULL REFERENCES public.group_orders(id) ON DELETE CASCADE,
     shares_bought INTEGER NOT NULL CHECK (shares_bought > 0),
     total_price NUMERIC(12, 2) NOT NULL CHECK (total_price >= 0),
-    status TEXT NOT NULL DEFAULT 'paid' CHECK (status IN ('paid', 'processing', 'ready_for_pickup', 'delivered', 'cancelled')),
+    status TEXT NOT NULL DEFAULT 'paid' CHECK (status IN ('to_pay', 'paid', 'processing', 'ready_for_pickup', 'delivered', 'cancelled', 'refund_requested', 'refunded')),
     payment_method TEXT NOT NULL, -- e.g., "Paystack", "Mock Wallet"
     payment_reference TEXT UNIQUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

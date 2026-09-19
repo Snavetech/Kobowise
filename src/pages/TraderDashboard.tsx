@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { dbService, mockRealtime } from '../supabase';
+import { dbService, mockRealtime, supabase } from '../supabase';
 import type { Product, Category, Order, GroupOrder } from '../supabase';
 import { ToastContainer, type ToastMessage } from '../components/Toast';
 import { LoadingSpinner } from '../components/LoadingSpinner';
@@ -92,7 +92,8 @@ export const TraderDashboard: React.FC = () => {
         dbService.getNotifications(user.id)
       ]);
 
-      const traderProds = user.id === 'trader-1' ? prods : prods.filter(p => p.trader_id === user.id);
+      const userProds = prods.filter(p => p.trader_id === user.id);
+      const traderProds = (user.id === 'trader-1' || userProds.length === 0) ? prods : userProds;
 
       setProducts(traderProds);
       setCategories(cats);
@@ -142,11 +143,31 @@ export const TraderDashboard: React.FC = () => {
       setShowNotifDrawer(prev => !prev);
     });
 
+    // Supabase Postgres Realtime Subscription for live account orders
+    let supaChannel: any = null;
+    if (supabase) {
+      supaChannel = supabase
+        .channel('trader_dashboard_live_orders')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+          loadTraderData(false);
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'group_orders' }, () => {
+          loadTraderData(false);
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
+          if (user) dbService.getNotifications(user.id).then(setNotifications);
+        })
+        .subscribe();
+    }
+
     return () => {
       groupsSub.unsubscribe();
       notifsSub.unsubscribe();
       ordersSub.unsubscribe();
       toggleDrawerSub.unsubscribe();
+      if (supaChannel && supabase) {
+        supabase.removeChannel(supaChannel);
+      }
     };
   }, [user, navigate, loadTraderData]);
 
