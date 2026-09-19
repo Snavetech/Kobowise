@@ -45,25 +45,32 @@ export const Home: React.FC = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifDrawer, setShowNotifDrawer] = useState(false);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    const prods = await dbService.getProducts();
-    const cats = await dbService.getCategories();
-    const groups = await dbService.getGroupOrders();
-    
-    setProducts(prods);
-    setCategories(cats);
-    setGroupOrders(groups);
-
-    if (user) {
-      const notifs = await dbService.getNotifications(user.id);
-      setNotifications(notifs);
+  const loadData = useCallback(async (isInitial = false) => {
+    if (isInitial) {
+      setLoading(true);
     }
-    setLoading(false);
-  }, [user]);
+    try {
+      const prods = await dbService.getProducts();
+      const cats = await dbService.getCategories();
+      const groups = await dbService.getGroupOrders();
+      
+      setProducts(prods);
+      setCategories(cats);
+      setGroupOrders(groups);
+
+      if (user?.id) {
+        const notifs = await dbService.getNotifications(user.id);
+        setNotifications(notifs);
+      }
+    } finally {
+      if (isInitial) {
+        setLoading(false);
+      }
+    }
+  }, [user?.id]);
 
   useEffect(() => {
-    loadData();
+    loadData(true);
 
     // Subscribe to mock real-time events
     const toastSub = mockRealtime.subscribe('toast', (toast: any) => {
@@ -77,7 +84,7 @@ export const Home: React.FC = () => {
     });
 
     const notifsSub = mockRealtime.subscribe('notifications_updated', () => {
-      if (user) {
+      if (user?.id) {
         dbService.getNotifications(user.id).then(setNotifications);
       }
     });
@@ -99,7 +106,7 @@ export const Home: React.FC = () => {
       toggleDrawerSub.unsubscribe();
       window.removeEventListener('globalSearch', handleGlobalSearch);
     };
-  }, [user, loadData]);
+  }, [user?.id, loadData]);
 
   const addToast = (message: string, type: ToastMessage['type'] = 'info') => {
     const id = Date.now().toString();

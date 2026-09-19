@@ -1,5 +1,4 @@
-/* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { supabase, isDemoMode, dbService, type Profile, initializeMockDb } from '../supabase';
 import { sendTraderWaitlistEmail } from '../services/emailService';
 
@@ -44,6 +43,11 @@ const formatAuthError = (err: any): string => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const userRef = useRef<Profile | null>(null);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   useEffect(() => {
     let isMounted = true;
@@ -57,14 +61,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (storedUserId) {
           const profile = await dbService.getProfile(storedUserId);
           if (profile && isMounted) {
+            userRef.current = profile;
             setUser(profile);
           }
         } else if (!isForcedDemo && supabase) {
           const { data: { session } } = await supabase.auth.getSession();
           if (session?.user && isMounted) {
             const profile = await dbService.getProfile(session.user.id);
-            if (profile) {
-              setUser({ ...profile, email: profile.email || session.user.email });
+            if (profile && isMounted) {
+              const fullUser = { ...profile, email: profile.email || session.user.email };
+              userRef.current = fullUser;
+              setUser(fullUser);
             }
           }
         }
@@ -85,12 +92,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const isForcedDemo = localStorage.getItem('kobowise_use_demo_mode') === 'true';
         if (isForcedDemo) return;
 
+        // Never re-fetch or re-render on metadata changes like cart updates or token refresh
+        if (event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
+          return;
+        }
+
         if (session?.user && isMounted) {
+          // If user is already loaded and matches session ID, avoid resetting user object reference
+          if (userRef.current && userRef.current.id === session.user.id) {
+            return;
+          }
+
           const profile = await dbService.getProfile(session.user.id);
-          if (profile) {
-            setUser({ ...profile, email: profile.email || session.user.email });
+          if (profile && isMounted) {
+            const fullUser = { ...profile, email: profile.email || session.user.email };
+            userRef.current = fullUser;
+            setUser(fullUser);
           }
         } else if (event === 'SIGNED_OUT' && isMounted) {
+          userRef.current = null;
           setUser(null);
           localStorage.removeItem('kobowise_session_user');
         }

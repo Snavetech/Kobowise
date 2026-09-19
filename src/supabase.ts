@@ -2219,15 +2219,22 @@ export const dbService = {
     }
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user && session.user.id === userId && session.user.user_metadata?.cart) {
-        const cloudCart = session.user.user_metadata.cart;
-        if (Array.isArray(cloudCart)) {
-          // If cloud has data, sync it down to local storage
-          if (cloudCart.length > 0 || !localSaved) {
-            localStorage.setItem(localKey, JSON.stringify(cloudCart));
-            return cloudCart;
-          }
+      const { data, error } = await supabase
+        .from('cart_items')
+        .select('shares_bought, products(*)')
+        .eq('user_id', userId);
+
+      if (!error && data && data.length > 0) {
+        const items = data
+          .map((row: any) => ({
+            product: row.products,
+            sharesBought: row.shares_bought
+          }))
+          .filter((i: any) => i.product);
+
+        if (items.length > 0) {
+          localStorage.setItem(localKey, JSON.stringify(items));
+          return items;
         }
       }
       return localCart;
@@ -2247,11 +2254,18 @@ export const dbService = {
     }
 
     try {
-      await supabase.auth.updateUser({
-        data: { cart }
-      });
+      // Sync to cart_items table without calling auth.updateUser (which causes auth state reload)
+      await supabase.from('cart_items').delete().eq('user_id', userId);
+      if (cart.length > 0) {
+        const rows = cart.map(item => ({
+          user_id: userId,
+          product_id: item.product.id,
+          shares_bought: item.sharesBought
+        }));
+        await supabase.from('cart_items').insert(rows);
+      }
     } catch (err) {
-      console.warn('Error syncing cart to Supabase cloud metadata:', err);
+      console.warn('Error syncing cart to Supabase cart_items table:', err);
     }
   },
 

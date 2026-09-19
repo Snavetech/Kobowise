@@ -375,6 +375,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             <button 
               type="button"
               onClick={(e) => {
+                e.preventDefault();
                 e.stopPropagation();
                 navigate('/cart');
               }}
@@ -410,6 +411,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             <button 
               type="button"
               onClick={(e) => {
+                e.preventDefault();
                 e.stopPropagation();
                 setJustJoined(true);
                 addToCart(product, 1);
