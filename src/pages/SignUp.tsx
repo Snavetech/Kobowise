@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { User, Store, Smartphone, Mail, Lock, BookOpen, Clock, CheckCircle2, Sparkles, Eye, EyeOff } from 'lucide-react';
+import { sendVerificationOTP } from '../services/emailService';
+import { 
+  User, Store, Smartphone, Mail, Lock, BookOpen, Clock, CheckCircle2, 
+  Sparkles, Eye, EyeOff, ShieldCheck, ArrowRight, RotateCcw, ArrowLeft, KeyRound 
+} from 'lucide-react';
 
 export const SignUp: React.FC = () => {
-  const { signUp, user } = useAuth();
+  const { signUp } = useAuth();
   const navigate = useNavigate();
 
   const [role, setRole] = useState<'buyer' | 'trader'>('buyer');
@@ -19,8 +23,19 @@ export const SignUp: React.FC = () => {
 
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isRegistered, setIsRegistered] = useState(false);
   const [isWaitlisted, setIsWaitlisted] = useState(false);
+
+  // OTP Verification state
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [activeOtp, setActiveOtp] = useState('');
+  const [otpInput, setOtpInput] = useState<string[]>(['', '', '', '', '', '']);
+  const [otpExpiry, setOtpExpiry] = useState<number>(0);
+  const [resendCooldown, setResendCooldown] = useState<number>(0);
+  const [otpError, setOtpError] = useState('');
+  const [verifyingLoading, setVerifyingLoading] = useState(false);
+  const [isVerifiedSuccess, setIsVerifiedSuccess] = useState(false);
+
+  const digitInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Password requirements state
   const reqs = {
@@ -33,12 +48,31 @@ export const SignUp: React.FC = () => {
 
   const isPasswordValid = reqs.hasMinLength && reqs.hasLowerCase && reqs.hasUpperCase && reqs.hasNumber && reqs.hasSpecialChar;
 
+  // Countdown timer for Resend OTP
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
+  // Focus first OTP cell when entering verification view
+  useEffect(() => {
+    if (isVerifyingOtp && digitInputRefs.current[0]) {
+      setTimeout(() => {
+        digitInputRefs.current[0]?.focus();
+      }, 150);
+    }
+  }, [isVerifyingOtp]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName.trim() || !email.trim() || !phoneNumber.trim()) {
       setErrorMsg('Please fill in all required fields.');
       return;
     }
+
     // Only buyers need password and student ID
     if (role === 'buyer') {
       if (!password.trim()) {
@@ -61,25 +95,150 @@ export const SignUp: React.FC = () => {
 
     setLoading(true);
     setErrorMsg('');
-    const res = await signUp(
-      email,
-      password || 'waitlist-placeholder', // Traders don't need a real password
-      role,
-      fullName,
-      phoneNumber,
-      role === 'buyer' ? studentId : undefined
-    );
-    setLoading(false);
 
-    if (res.success) {
-      if (res.waitlisted) {
+    // --- TRADER WAITLIST FLOW ---
+    if (role === 'trader') {
+      const res = await signUp(
+        email,
+        password || 'waitlist-placeholder',
+        role,
+        fullName,
+        phoneNumber
+      );
+      setLoading(false);
+
+      if (res.success) {
         setIsWaitlisted(true);
       } else {
-        setIsRegistered(true);
+        setErrorMsg(res.error || 'Registration failed. Please check details and try again.');
       }
-    } else {
-      setErrorMsg(res.error || 'Registration failed. Please check details and try again.');
+      return;
     }
+
+    // --- BUYER 6-DIGIT OTP VERIFICATION FLOW ---
+    const generated = Math.floor(100000 + Math.random() * 900000).toString();
+    setActiveOtp(generated);
+    setOtpExpiry(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+    setResendCooldown(60); // 60 seconds cooldown
+    setOtpInput(['', '', '', '', '', '']);
+    setOtpError('');
+
+    // Dispatch via EmailJS (gracefully simulated if keys are unconfigured)
+    await sendVerificationOTP(email, fullName, generated);
+    setLoading(false);
+    setIsVerifyingOtp(true);
+  };
+
+  // OTP Input handlers
+  const handleOtpDigitChange = (index: number, val: string) => {
+    const char = val.slice(-1); // Take latest input
+    if (char && !/^\d$/.test(char)) return; // Allow only numeric digits
+
+    const nextDigits = [...otpInput];
+    nextDigits[index] = char;
+    setOtpInput(nextDigits);
+    setOtpError('');
+
+    if (char && index < 5) {
+      digitInputRefs.current[index + 1]?.focus();
+    }
+
+    // Automatically trigger verification once all 6 digits are provided
+    const fullCode = nextDigits.join('');
+    if (fullCode.length === 6 && !nextDigits.includes('')) {
+      handleVerifyOtp(fullCode);
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace') {
+      if (!otpInput[index] && index > 0) {
+        digitInputRefs.current[index - 1]?.focus();
+      }
+    } else if (e.key === 'ArrowLeft' && index > 0) {
+      digitInputRefs.current[index - 1]?.focus();
+    } else if (e.key === 'ArrowRight' && index < 5) {
+      digitInputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (!pasted) return;
+
+    const nextDigits = ['', '', '', '', '', ''];
+    for (let i = 0; i < pasted.length; i++) {
+      nextDigits[i] = pasted[i];
+    }
+    setOtpInput(nextDigits);
+    setOtpError('');
+
+    const targetIndex = Math.min(pasted.length, 5);
+    digitInputRefs.current[targetIndex]?.focus();
+
+    if (pasted.length === 6) {
+      handleVerifyOtp(pasted);
+    }
+  };
+
+  const handleVerifyOtp = async (codeToVerify?: string) => {
+    const code = codeToVerify || otpInput.join('');
+    if (code.length < 6) {
+      setOtpError('Please enter all 6 digits of your verification code.');
+      return;
+    }
+
+    if (Date.now() > otpExpiry) {
+      setOtpError('This verification code has expired. Please click "Resend Code" below.');
+      return;
+    }
+
+    if (code !== activeOtp) {
+      setOtpError('Incorrect verification code. Please check your email and try again.');
+      return;
+    }
+
+    setVerifyingLoading(true);
+    setOtpError('');
+
+    const res = await signUp(
+      email,
+      password,
+      'buyer',
+      fullName,
+      phoneNumber,
+      studentId
+    );
+
+    setVerifyingLoading(false);
+
+    if (res.success) {
+      setIsVerifiedSuccess(true);
+      setTimeout(() => {
+        navigate('/home');
+      }, 1200);
+    } else {
+      setOtpError(res.error || 'Failed to complete registration. Please try again.');
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0) return;
+    const generated = Math.floor(100000 + Math.random() * 900000).toString();
+    setActiveOtp(generated);
+    setOtpExpiry(Date.now() + 10 * 60 * 1000);
+    setResendCooldown(60);
+    setOtpInput(['', '', '', '', '', '']);
+    setOtpError('');
+    await sendVerificationOTP(email, fullName, generated);
+  };
+
+  const handleAutoFillDemo = () => {
+    const digits = activeOtp.split('');
+    setOtpInput(digits);
+    setOtpError('');
+    handleVerifyOtp(activeOtp);
   };
 
   // ═══════════════════════════════════════════════
@@ -336,9 +495,9 @@ export const SignUp: React.FC = () => {
   }
 
   // ═══════════════════════════════════════════════
-  // BUYER EMAIL CONFIRMATION SCREEN (unchanged)
+  // 6-DIGIT OTP VERIFICATION SCREEN
   // ═══════════════════════════════════════════════
-  if (isRegistered) {
+  if (isVerifyingOtp) {
     return (
       <div style={{ 
         display: 'flex', 
@@ -350,59 +509,295 @@ export const SignUp: React.FC = () => {
       }}>
         <div style={{ 
           width: '100%', 
-          maxWidth: '480px', 
+          maxWidth: '490px', 
           backgroundColor: '#FFFFFF', 
           borderRadius: '24px', 
           border: '1px solid #DBEAFE', 
-          padding: '40px 36px',
-          boxShadow: '0 8px 32px rgba(30, 64, 175, 0.08)',
+          padding: '40px 32px',
+          boxShadow: '0 12px 40px rgba(30, 64, 175, 0.08)',
           textAlign: 'center'
         }}>
-          <div style={{
-            width: '64px',
-            height: '64px',
-            borderRadius: '50%',
-            backgroundColor: '#EFF6FF',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 24px auto',
-            color: '#2563EB'
-          }}>
-            <Mail size={32} />
-          </div>
-          <h2 style={{ fontSize: '24px', color: '#0F172A', marginBottom: '12px', fontFamily: 'var(--font-heading)', fontWeight: '800' }}>
-            Confirm Your Email
-          </h2>
-          <p style={{ color: '#475569', fontSize: '14px', lineHeight: '1.6', marginBottom: '24px' }}>
-            We've sent a verification link to <strong style={{ color: '#0F172A' }}>{email}</strong>. 
-            Please check your inbox (and spam folder) and click the link to confirm your account.
-          </p>
-          <button 
-            onClick={() => {
-              if (user) {
-                navigate(user.role === 'trader' ? '/trader-dashboard' : '/home');
-              } else {
-                navigate('/login');
-              }
-            }}
-            className="btn btn-secondary btn-full"
-            style={{ 
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '48px', 
-              borderRadius: '14px',
-              background: 'linear-gradient(135deg, #2563EB, #3B82F6)',
-              fontSize: '15px',
-              fontWeight: '700',
-              border: 'none',
-              cursor: 'pointer',
-              boxShadow: '0 4px 14px rgba(37, 99, 235, 0.2)'
-            }}
-          >
-            {user ? 'Continue to App' : 'Go to Login'}
-          </button>
+          {isVerifiedSuccess ? (
+            <div style={{ padding: '24px 0', animation: 'waitlistFadeIn 0.4s ease-out' }}>
+              <div style={{
+                width: '72px',
+                height: '72px',
+                borderRadius: '50%',
+                backgroundColor: '#DCFCE7',
+                color: '#16A34A',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 20px auto',
+                boxShadow: '0 0 0 8px #F0FDF4'
+              }}>
+                <CheckCircle2 size={40} />
+              </div>
+              <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#0F172A', marginBottom: '8px' }}>
+                Account Verified!
+              </h2>
+              <p style={{ color: '#64748B', fontSize: '15px' }}>
+                Welcome to KoboWise, <strong>{fullName}</strong>! Taking you to the campus marketplace...
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Shield Icon Header */}
+              <div style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '20px',
+                backgroundColor: '#EFF6FF',
+                color: '#2563EB',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 20px auto',
+                border: '1px solid #BFDBFE'
+              }}>
+                <ShieldCheck size={32} />
+              </div>
+
+              {/* Campus Badge */}
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: '#F1F5F9',
+                border: '1px solid #E2E8F0',
+                borderRadius: '20px',
+                padding: '4px 12px',
+                fontSize: '12px',
+                fontWeight: '600',
+                color: '#475569',
+                marginBottom: '14px'
+              }}>
+                <KeyRound size={13} style={{ color: '#2563EB' }} />
+                DELSU Student Verification
+              </div>
+
+              <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#0F172A', marginBottom: '10px' }}>
+                Enter 6-Digit Code
+              </h2>
+
+              <p style={{ color: '#475569', fontSize: '14px', lineHeight: '1.6', marginBottom: '8px' }}>
+                We sent a one-time verification code to:
+              </p>
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: '#EFF6FF',
+                padding: '6px 14px',
+                borderRadius: '10px',
+                marginBottom: '24px',
+                border: '1px solid #DBEAFE'
+              }}>
+                <Mail size={14} style={{ color: '#2563EB' }} />
+                <strong style={{ color: '#1E40AF', fontSize: '14px' }}>{email}</strong>
+                <button
+                  type="button"
+                  onClick={() => setIsVerifyingOtp(false)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#64748B',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    padding: '0 4px'
+                  }}
+                  title="Edit email"
+                >
+                  Edit
+                </button>
+              </div>
+
+              {/* 6 Digit Input Cells */}
+              <div style={{
+                display: 'flex',
+                gap: '8px',
+                justifyContent: 'center',
+                marginBottom: '16px'
+              }}>
+                {otpInput.map((digit, idx) => (
+                  <input
+                    key={idx}
+                    ref={(el) => { digitInputRefs.current[idx] = el; }}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e) => handleOtpDigitChange(idx, e.target.value)}
+                    onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                    onPaste={handleOtpPaste}
+                    style={{
+                      width: '50px',
+                      height: '60px',
+                      fontSize: '24px',
+                      fontWeight: '800',
+                      textAlign: 'center',
+                      borderRadius: '12px',
+                      border: digit ? '2px solid #2563EB' : '2px solid #CBD5E1',
+                      backgroundColor: digit ? '#F0F9FF' : '#F8FAFC',
+                      color: '#0F172A',
+                      outline: 'none',
+                      boxShadow: digit ? '0 0 0 3px rgba(37, 99, 235, 0.15)' : 'none',
+                      transition: 'all 0.15s ease-in-out'
+                    }}
+                  />
+                ))}
+              </div>
+
+              {otpError && (
+                <div style={{
+                  color: '#DC2626',
+                  fontSize: '13px',
+                  backgroundColor: '#FEF2F2',
+                  border: '1px solid #FEE2E2',
+                  borderRadius: '10px',
+                  padding: '10px 14px',
+                  marginBottom: '18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}>
+                  <span>⚠️</span> {otpError}
+                </div>
+              )}
+
+              {/* Submit Button */}
+              <button
+                type="button"
+                onClick={() => handleVerifyOtp()}
+                disabled={verifyingLoading || otpInput.some((d) => !d)}
+                className="btn btn-primary btn-full"
+                style={{
+                  height: '50px',
+                  borderRadius: '14px',
+                  fontSize: '15px',
+                  fontWeight: '700',
+                  background: otpInput.every((d) => d)
+                    ? 'linear-gradient(135deg, #2563EB, #1D4ED8)'
+                    : '#CBD5E1',
+                  border: 'none',
+                  color: '#FFFFFF',
+                  cursor: otpInput.every((d) => d) && !verifyingLoading ? 'pointer' : 'not-allowed',
+                  boxShadow: otpInput.every((d) => d) ? '0 4px 14px rgba(37, 99, 235, 0.25)' : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  marginBottom: '20px',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                {verifyingLoading ? (
+                  <>Verifying Code...</>
+                ) : (
+                  <>
+                    Verify & Create Account <ArrowRight size={18} />
+                  </>
+                )}
+              </button>
+
+              {/* Resend Code Section */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                fontSize: '14px',
+                color: '#64748B'
+              }}>
+                {resendCooldown > 0 ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <Clock size={15} style={{ color: '#94A3B8' }} />
+                    Resend code in <strong style={{ color: '#2563EB' }}>{resendCooldown}s</strong>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleResendOtp}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#2563EB',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontSize: '14px',
+                      textDecoration: 'underline'
+                    }}
+                  >
+                    <RotateCcw size={15} />
+                    Resend Code
+                  </button>
+                )}
+              </div>
+
+              {/* Dev / Demo Helper Chip */}
+              <div style={{
+                marginTop: '28px',
+                padding: '12px 16px',
+                background: '#F8FAFC',
+                borderRadius: '12px',
+                border: '1px dashed #CBD5E1',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: '13px',
+                color: '#475569'
+              }}>
+                <span>
+                  💡 <strong>Demo Mode OTP:</strong>{' '}
+                  <code style={{ color: '#2563EB', fontWeight: '800', fontSize: '15px', letterSpacing: '2px', marginLeft: '4px' }}>
+                    {activeOtp}
+                  </code>
+                </span>
+                <button
+                  type="button"
+                  onClick={handleAutoFillDemo}
+                  style={{
+                    background: '#EFF6FF',
+                    border: '1px solid #BFDBFE',
+                    color: '#1D4ED8',
+                    borderRadius: '8px',
+                    padding: '4px 10px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Auto-Fill
+                </button>
+              </div>
+
+              {/* Back to details link */}
+              <div style={{ marginTop: '20px' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsVerifyingOtp(false)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#64748B',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <ArrowLeft size={14} /> Back to registration details
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     );

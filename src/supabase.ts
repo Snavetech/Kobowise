@@ -45,6 +45,7 @@ export interface Profile {
   student_id?: string;
   phone_number: string;
   avatar_url?: string;
+  is_verified?: boolean;
 }
 
 export interface Category {
@@ -1305,20 +1306,20 @@ export const dbService = {
       // Determine trader UUID for Supabase database table constraints
       let traderIdForDb = isUuid(product.trader_id) ? product.trader_id : null;
       if (!traderIdForDb && supabase) {
-        const { data: tProf } = await supabase.from('profiles').select('id').eq('role', 'trader').limit(1).maybeSingle();
+        const { data: tProf } = await supabase!.from('profiles').select('id').eq('role', 'trader').limit(1).maybeSingle();
         if (tProf) traderIdForDb = tProf.id;
       }
       if (!traderIdForDb) traderIdForDb = buyerUuid;
 
       // 1. Ensure product exists in Supabase products table
-      const { data: existingSupaProd } = await supabase
+      const { data: existingSupaProd } = await supabase!
         .from('products')
         .select('id')
         .eq('id', prodUuid)
         .maybeSingle();
 
       if (!existingSupaProd) {
-        await supabase.from('products').insert({
+        await supabase!.from('products').insert({
           id: prodUuid,
           trader_id: traderIdForDb,
           name: product.name,
@@ -1335,7 +1336,7 @@ export const dbService = {
       }
 
       // 2. Ensure active group order exists in Supabase
-      let { data: currentGroup } = await supabase
+      let { data: currentGroup } = await supabase!
         .from('group_orders')
         .select('*')
         .eq('product_id', prodUuid)
@@ -1343,7 +1344,7 @@ export const dbService = {
         .maybeSingle();
 
       if (!currentGroup) {
-        const { data: newGroup } = await supabase
+        const { data: newGroup } = await supabase!
           .from('group_orders')
           .insert({
             product_id: prodUuid,
@@ -1360,7 +1361,7 @@ export const dbService = {
         const nextShares = currentGroup.shares_purchased + sharesToBuy;
         const isCompleted = nextShares >= currentGroup.shares_needed;
 
-        await supabase
+        await supabase!
           .from('group_orders')
           .update({
             shares_purchased: Math.min(nextShares, currentGroup.shares_needed),
@@ -1369,7 +1370,7 @@ export const dbService = {
           .eq('id', currentGroup.id);
 
         // 3. Create Order Transaction in Supabase
-        const { data: supaOrder } = await supabase
+        const { data: supaOrder } = await supabase!
           .from('orders')
           .insert({
             buyer_id: buyerUuid,
@@ -1384,28 +1385,28 @@ export const dbService = {
           .single();
 
         if (supaOrder) {
-          await supabase.from('order_items').insert({
+          await supabase!.from('order_items').insert({
             group_order_id: currentGroup.id,
             buyer_id: buyerUuid,
             shares_bought: sharesToBuy,
             price_paid: sharesToBuy * product.price_per_share
           });
 
-          await supabase.from('payments').insert({
+          await supabase!.from('payments').insert({
             order_id: supaOrder.id,
             amount: supaOrder.total_price,
             reference: finalRef,
             status: 'success'
           });
 
-          await supabase.from('notifications').insert({
+          await supabase!.from('notifications').insert({
             user_id: buyerUuid,
             title: 'Joined Group Buy!',
             message: `Successfully paid ₦${supaOrder.total_price} for Order ${finalRef} (${product.name}).`
           });
 
           if (isCompleted) {
-            await supabase.from('notifications').insert({
+            await supabase!.from('notifications').insert({
               user_id: traderIdForDb,
               title: 'Group Complete - Fulfill Order!',
               message: `The group buy for "${product.name}" is completed. Please prep the items for pickup at ${product.pickup_location}.`
@@ -1418,12 +1419,11 @@ export const dbService = {
     }
 
     return newOrder;
-
     const allGroups = await this.getGroupOrders();
     mockRealtime.emit('groups_updated', allGroups);
     mockRealtime.emit('notifications_updated', {});
 
-    return { ...order, payment_reference: finalRef };
+    return { ...newOrder, payment_reference: finalRef };
   },
 
   // --- ORDERS ---
@@ -1546,8 +1546,8 @@ export const dbService = {
       let mappedSupa: Order[] = [];
       if (supaProds && supaProds.length > 0) {
         const traderProductIds = supaProds.map((p: { id: string }) => p.id);
-        const supaProdMap = new Map<string, { id: string; name: string; pickup_location: string }>(
-          supaProds.map((p: { id: string; name: string; pickup_location: string }) => [p.id, p])
+        const supaProdMap = new Map<string, { id: string; name: string; pickup_location: string; trader_id: string }>(
+          supaProds.map((p: { id: string; name: string; pickup_location: string; trader_id: string }) => [p.id, p])
         );
 
         // Step 2: Get group_orders for those products
@@ -1578,13 +1578,19 @@ export const dbService = {
               buyerProfiles = profilesData || [];
             }
 
-            const groupToProduct = new Map<string, { id: string; name: string; pickup_location: string }>();
+            const groupToProduct = new Map<string, { id: string; name: string; pickup_location: string; trader_id: string }>();
             traderGroups.forEach((g: { id: string; product_id: string }) => {
               const p = supaProdMap.get(g.product_id);
               if (p) groupToProduct.set(g.id, p);
             });
 
-            mappedSupa = ordersData.map((o: Order) => {
+            // Filter orders to only those belonging to the trader's products
+            const filteredOrders = ordersData.filter((o: Order) => {
+              const prod = groupToProduct.get(o.group_order_id);
+              return prod && prod.trader_id === traderId;
+            });
+
+            mappedSupa = filteredOrders.map((o: Order) => {
               const prod = groupToProduct.get(o.group_order_id);
               const buyer = buyerProfiles.find(p => p.id === o.buyer_id);
               return {
@@ -1592,7 +1598,7 @@ export const dbService = {
                 product_name: prod?.name || o.product_name || 'Group Purchase',
                 buyer_name: buyer?.full_name || o.buyer_name || 'Student Buyer',
                 pickup_location: prod?.pickup_location || o.pickup_location || 'DELSU Site II Gate Shop 1B'
-              };
+              } as Order;
             });
           }
         }

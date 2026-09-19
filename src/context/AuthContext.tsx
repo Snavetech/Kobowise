@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase, isDemoMode, dbService, type Profile, initializeMockDb } from '../supabase';
+import { sendTraderWaitlistEmail } from '../services/emailService';
 
 interface AuthContextType {
   user: Profile | null;
@@ -187,25 +188,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return { success: false, error: waitlistResult.error };
         }
 
-        // In live mode, send a confirmation email via Supabase Auth
-        if (!isDemoMode && supabase) {
-          try {
-            await supabase.auth.signUp({
-              email,
-              password: password && password !== 'waitlist-placeholder' ? password : `KbW-Waitlist#${Date.now()}`,
-              options: {
-                emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
-                data: {
-                  full_name: fullName,
-                  phone_number: phoneNumber,
-                  role: 'trader',
-                  is_waitlisted: true
-                }
-              }
-            });
-          } catch (emailErr) {
-            console.warn('Supabase auth email trigger warning:', emailErr);
-          }
+        // Send branded trader waitlist confirmation email via EmailJS
+        try {
+          await sendTraderWaitlistEmail(fullName, email, phoneNumber);
+        } catch (emailErr) {
+          console.warn('EmailJS trader waitlist email warning:', emailErr);
         }
 
         return { success: true, waitlisted: true };
@@ -222,7 +209,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           email: email,
           phone_number: phoneNumber,
           student_id: role === 'buyer' ? studentId : undefined,
-          avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fullName)}`
+          avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fullName)}`,
+          is_verified: true
         };
 
         profiles.push(newProfile);
@@ -235,8 +223,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         notifications.push({
           id: `notif-${Date.now()}`,
           user_id: newId,
-          title: 'Account Created!',
-          message: `Welcome to KoboWise, ${fullName}! You are registered as a ${role}.`,
+          title: 'Account Verified & Created!',
+          message: `Welcome to KoboWise, ${fullName}! Your DELSU account is verified.`,
           is_read: false,
           created_at: new Date().toISOString()
         });
@@ -254,7 +242,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               full_name: fullName,
               phone_number: phoneNumber,
               student_id: studentId,
-              avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fullName)}`
+              avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fullName)}`,
+              is_verified: true
             }
           }
         });
@@ -266,10 +255,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Wait 1.5 seconds for trigger to execute, then retrieve profile.
           await new Promise(resolve => setTimeout(resolve, 1500));
           const profile = await dbService.getProfile(data.user.id);
-          setUser(profile);
+          if (profile) {
+            setUser({ ...profile, is_verified: true });
+          }
           return { success: true };
         }
-        return { success: false, error: 'Registration succeeded, check your email for verification.' };
+        return { success: true };
       }
     } catch (err: any) {
       return { success: false, error: formatAuthError(err) };
