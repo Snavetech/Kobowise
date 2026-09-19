@@ -49,7 +49,12 @@ export const sendVerificationOTP = async (
   try {
     const templateParams = {
       to_email: toEmail,
+      email: toEmail,
+      user_email: toEmail,
+      recipient: toEmail,
       to_name: toName,
+      name: toName,
+      user_name: toName,
       otp_code: otpCode,
       campus: 'Delta State University (DELSU), Abraka',
       platform: 'KoboWise Campus Marketplace',
@@ -100,7 +105,12 @@ export const sendTraderWaitlistEmail = async (
     const templateParams = {
       // Direct keys for trader-waitlist.html
       to_name: toName,
+      name: toName,
+      user_name: toName,
       to_email: toEmail,
+      email: toEmail,
+      user_email: toEmail,
+      recipient: toEmail,
       phone_number: phoneNumber || '',
       campus: 'Delta State University (DELSU)',
       perks: 'Zero-commission launch month, verified trader badge, priority catalog listing',
@@ -185,7 +195,12 @@ export const sendOrderReceiptEmail = async (
     const templateParams = {
       // Direct keys for order-receipt.html
       to_name: params.toName,
+      name: params.toName,
+      user_name: params.toName,
       to_email: params.toEmail,
+      email: params.toEmail,
+      user_email: params.toEmail,
+      recipient: params.toEmail,
       order_id: params.orderId,
       product_name: params.productName,
       shares_count: String(params.sharesCount),
