@@ -1,32 +1,37 @@
-# React + TypeScript + Vite
+# KoboWise
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Campus bulk group-buying for DELSU Abraka. KoboWise lets students pool together to buy wholesale shares of foodstuff and everyday essentials, so everyone gets bulk prices without buying in bulk alone.
 
-Currently, two official plugins are available:
+## Who It's For
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **DELSU students** — buy affordable shares of bulk goods on campus.
+- **Campus traders** — list products, manage bulk deals and track orders.
 
-## React Compiler
+## Key Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Group-buy pooling** — students join a bulk deal and the order is fulfilled once the pool is filled.
+- **Share buying** — buy one or more shares of a bulk item instead of the whole bag.
+- **Paystack checkout** — secure payments with Paystack.
+- **Trader dashboard** — traders manage listings, orders and payouts.
+- **Student ID verification** — verifies DELSU students before they can join deals.
+- **Supabase + localStorage fallback** — data syncs with Supabase and falls back to local storage when offline.
 
-## Expanding the Oxlint configuration
+## Tech Stack
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+- React 19
+- TypeScript
+- Vite
+- Supabase
+- EmailJS
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
+## Live Demo
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+[https://kobowise-three.vercel.app](https://kobowise-three.vercel.app)
+
+## Screenshots
+
+![Landing page](doc_screenshots/landing_page.png)
+![Product details](doc_screenshots/product_details.png)
+![Cart & checkout](doc_screenshots/cart_checkout.png)
+![Trader dashboard](doc_screenshots/trader_dashboard.png)
+![User profile](doc_screenshots/user_profile.png)
